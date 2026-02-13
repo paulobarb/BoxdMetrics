@@ -1,0 +1,15 @@
+# 1. Ignore Secrets
+.env
+.env.local
+
+# 2. Ignore Python Garbage
+__pycache__/
+*.py[cod]
+
+# 3. Ignore OS Garbage
+.DS_Store
+Thumbs.db
+
+# 4. Ignore Local Virtual Envs (if you use them)
+venv/
+.venv/

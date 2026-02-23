@@ -1,34 +1,42 @@
 import pandas as pd
+from fastapi import FastAPI, UploadFile, File
+from typing import List
 
-# Read the watched.csv file
-def watched_db():
-    try:
-        watched = pd.read_csv('data/watched.csv')
-        return watched
-    except FileNotFoundError:
-        print("ERROR: Could not find 'data/watched.csv'.")
-        print("Make sure your Letterboxd file is inside the src/backend/data/ folder.")
-        return None
+app = FastAPI(title="BoxdMetrics API")
+
+@app.post("/upload/")
+def upload_files(file: List[UploadFile] = File(...)):
+    watched_df = None
+    ratings_df = None
+    diary_df = None
+
+    for uploaded_file in file:
+        if uploaded_file.filename == "watched.csv":
+            watched_df = pd.read_csv(uploaded_file.file)
+        elif uploaded_file.filename == "ratings.csv":
+            ratings_df = pd.read_csv(uploaded_file.file)
+        elif uploaded_file.filename == "diary.csv":
+            diary_df = pd.read_csv(uploaded_file.file)
+
+    if watched_df is not None and ratings_df is not None and diary_df is not None:
+        topCnt, topDec = movies_decades(watched_df)
+        avgRating = average_rating(ratings_df)
+        topDay = day_of_the_week(diary_df)
+        oldestYear, newestYear = time_machine(watched_df)
     
-# Read the ratings.csv file
-def ratings_db():
-    try:
-        ratings = pd.read_csv('data/ratings.csv')
-        return ratings
-    except FileNotFoundError:
-        print("ERROR: Could not find 'data/ratings.csv'.")
-        print("Make sure your Letterboxd file is inside the src/backend/data/ folder.")
-        return None
+        statsPayload = {
+            "totalMovies": int(len(watched_df)),
+            "topDecade": int(topDec),
+            "topCount": int(topCnt),
+            "avgRating": float(avgRating),
+            "topDay": str(topDay),
+            "oldestYear": int(oldestYear),
+            "newestYear": int(newestYear)
+        }
 
-# Read the diary.csv file
-def diary_db():
-    try:
-        diary = pd.read_csv('data/diary.csv')
-        return diary
-    except FileNotFoundError:
-        print("ERROR: Could not find 'data/diary.csv'.")
-        print("Make sure your Letterboxd file is inside the src/backend/data/ folder.")
-        return None
+        return statsPayload
+        
+    return {"error": "Please upload watched.csv, ratings.csv, and diary.csv"}
 
 # Filter movies by decades
 def movies_decades(watched):
@@ -61,40 +69,5 @@ def time_machine(watched):
     newestYear = watched['Year'].max()
 
     return oldestYear, newestYear
-
-
-# Print stats
-def print_movie_stats(stats):
-    print(f"You have watched a total of {stats['totalMovies']} movies.")
-    print(f"Your Most Watched Decade is {stats['topDecade']}. ({stats['topCount']} movies)")
-    print(f"Your average rating is {stats['avgRating']} stars.")
-    print(f"Your most active day is {stats['topDay']}")
-    print(f"Oldest year {stats['oldestYear']}. Newest year {stats['newestYear']}")
-
-# Main
-if __name__ == "__main__":
-    watched_df = watched_db()
-    ratings_df = ratings_db()
-    diary_df = diary_db()
-
-
-    if watched_df  is not None and ratings_df is not None and diary_df is not None:
-        topCnt, topDec = movies_decades(watched_df)
-        avgRating = average_rating(ratings_df)
-        topDay = day_of_the_week(diary_df)
-        oldestYear, newestYear = time_machine(watched_df)
-        
-        statsPayload = {
-            "totalMovies": len(watched_df),
-            "topDecade": topDec,
-            "topCount": topCnt,
-            "avgRating": avgRating,
-            "topDay": topDay,
-            "oldestYear": oldestYear,
-            "newestYear": newestYear
-        }
-        
-        print_movie_stats(statsPayload)
-
 
     

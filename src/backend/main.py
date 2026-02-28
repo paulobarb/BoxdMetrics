@@ -1,16 +1,30 @@
 import pandas as pd
 from fastapi import FastAPI, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 
 app = FastAPI(title="BoxdMetrics API")
 
+origins = [
+    "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 @app.post("/upload/")
-def upload_files(file: List[UploadFile] = File(...)):
+def upload_files(files: List[UploadFile] = File(...)):
     watched_df = None
     ratings_df = None
     diary_df = None
 
-    for uploaded_file in file:
+    for uploaded_file in files: # For each uploaded file in the list of files
         if uploaded_file.filename == "watched.csv":
             watched_df = pd.read_csv(uploaded_file.file)
         elif uploaded_file.filename == "ratings.csv":
@@ -70,4 +84,3 @@ def time_machine(watched):
 
     return oldestYear, newestYear
 
-    

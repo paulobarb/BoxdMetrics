@@ -1,29 +1,45 @@
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from typing import List
+import etl
+
+import logging
+logger = logging.getLogger(__name__)
 
 app = FastAPI(title="BoxdMetrics API")
 
 @app.post("/upload/")
-def upload_files(file: List[UploadFile] = File(...)):
+def upload_files(files: List[UploadFile] = File(...)):
     watched_df = None
     ratings_df = None
     diary_df = None
 
-    for uploaded_file in file:
-        if uploaded_file.filename == "watched.csv":
-            watched_df = pd.read_csv(uploaded_file.file)
-        elif uploaded_file.filename == "ratings.csv":
-            ratings_df = pd.read_csv(uploaded_file.file)
-        elif uploaded_file.filename == "diary.csv":
-            diary_df = pd.read_csv(uploaded_file.file)
+    for uploaded_file in files: # For each uploaded file in the list of files
+        try:
+            if uploaded_file.filename == "watched.csv":
+                watched_df = pd.read_csv(uploaded_file.file)
+            elif uploaded_file.filename == "ratings.csv":
+                ratings_df = pd.read_csv(uploaded_file.file)
+            elif uploaded_file.filename == "diary.csv":
+                diary_df = pd.read_csv(uploaded_file.file)
+        except pd.errors.EmptyDataError:
+            raise HTTPException(status_code=400, detail=f"The file {uploaded_file.filename} is empty.")
+        except pd.errors.ParserError:
+            raise HTTPException(status_code=400, detail=f"The file {uploaded_file.filename} is corrupted or not a valid CSV.")
+        except Exception as e:
+            logger.error(f"Unexpected error: {e}")
+            raise HTTPException(status_code=500, detail="An internal server error occurred while reading the files.")
 
     if watched_df is not None and ratings_df is not None and diary_df is not None:
-        topCnt, topDec = movies_decades(watched_df)
-        avgRating = average_rating(ratings_df)
-        topDay = day_of_the_week(diary_df)
-        oldestYear, newestYear = time_machine(watched_df)
-    
+        try:
+            topCnt, topDec, oldestYear, newestYear = etl.process_watched(watched_df)
+            avgRating = etl.process_ratings(ratings_df)
+            topDay = etl.process_diary(diary_df)
+        except Exception as e:
+            logger.error(f"Something went wrong processing your files: {e}")
+            raise HTTPException(status_code=500, detail="An internal server error occurred while analyzing the data.")
+
         statsPayload = {
             "totalMovies": int(len(watched_df)),
             "topDecade": int(topDec),
@@ -35,39 +51,5 @@ def upload_files(file: List[UploadFile] = File(...)):
         }
 
         return statsPayload
-        
-    return {"error": "Please upload watched.csv, ratings.csv, and diary.csv"}
 
-# Filter movies by decades
-def movies_decades(watched):
-    watched['Decade'] = (watched['Year'] // 10) * 10
-    
-    decadeCounts = watched['Decade'].value_counts()
-    topDecade = decadeCounts.idxmax()
-    topCount = decadeCounts.max()
-
-    return topCount, topDecade
-
-# User Average Rating
-def average_rating(ratings):
-    avgRating = ratings['Rating'].mean()
-    return round(avgRating, 2)
-
-# Day of the week with most watched movies
-def day_of_the_week(diary):
-    diary['Watched Date'] = pd.to_datetime(diary['Watched Date'])
-    diary['Day'] = diary['Watched Date'].dt.day_name()
-    
-    dayCounts = diary['Day'].value_counts()
-    topDay = dayCounts.idxmax()
-
-    return topDay
-
-# Oldest and Newest movie year watched
-def time_machine(watched):
-    oldestYear = watched['Year'].min()
-    newestYear = watched['Year'].max()
-
-    return oldestYear, newestYear
-
-    
+    raise HTTPException(status_code=400, detail="Please upload watched.csv, ratings.csv, and diary.csv")

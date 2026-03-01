@@ -25,7 +25,7 @@ The goal is not just to analyze movie data, but to build a robust, automated, an
 
 ---
 
-## 🚀 Quick Start (Local Dev)
+## 🚀 Quick Start
 
 ### Prerequisites
 * Docker & Docker Compose

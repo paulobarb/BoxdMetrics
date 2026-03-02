@@ -13,3 +13,7 @@ Thumbs.db
 # 4. Ignore Local Virtual Envs (if you use them)
 venv/
 .venv/
+
+node_modules/
+.vite/
+src/backend/data/

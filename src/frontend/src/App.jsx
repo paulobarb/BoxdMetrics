@@ -5,10 +5,12 @@ function App() {
 
   const [displayStats, setDisplayData] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
   
   const handleUpload = async (e) => {
     e.preventDefault();
     setLoading(true);
+    setError("");
 
     const formData = new FormData(e.target);
 
@@ -22,10 +24,17 @@ function App() {
       });
       
       const data = await response.json();
+
+      if(!response.ok) {
+        setError(data.detail);
+        return;
+      };
+
       console.log("Your data:", data);
       setDisplayData(data);
     } catch (error) {
       console.error("Something went wrong:", error);
+      setError(error);
     } finally{
       setLoading(false);
       e.target.reset(); // Clear the file input
@@ -47,7 +56,13 @@ function App() {
         </button>
       </form>
 
-      { !loading && displayStats && (
+      { !loading && error && (
+         <div style={{ color: '#ff6b6b', padding: '10px', marginTop: '30px', border: '1px solid #ff6b6b', borderRadius: '5px' }}>
+              {"Unable to connect to the server. Please try again."}
+            </div>
+      )}
+
+      { !loading && !error && displayStats && (
       <div style={{ marginTop: '30px' }}>
           <h2>Your Stats</h2>
           

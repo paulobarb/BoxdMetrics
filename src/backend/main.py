@@ -9,6 +9,19 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="BoxdMetrics API")
 
+origins = [
+    "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
 @app.post("/upload/")
 def upload_files(files: List[UploadFile] = File(...)):
     watched_df = None

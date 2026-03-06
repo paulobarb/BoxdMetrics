@@ -34,7 +34,7 @@ function App() {
       setDisplayData(data);
     } catch (error) {
       console.error("Something went wrong:", error);
-      setError(error);
+      setError("Unable to connect to the server. Please try again.");
     } finally{
       setLoading(false);
       e.target.reset(); // Clear the file input
@@ -58,7 +58,7 @@ function App() {
 
       { !loading && error && (
          <div style={{ color: '#ff6b6b', padding: '10px', marginTop: '30px', border: '1px solid #ff6b6b', borderRadius: '5px' }}>
-              {"Unable to connect to the server. Please try again."}
+              {error}
             </div>
       )}
 

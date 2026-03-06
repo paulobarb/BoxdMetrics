@@ -49,6 +49,8 @@ def upload_files(files: List[UploadFile] = File(...)):
             topCnt, topDec, oldestYear, newestYear = etl.process_watched(watched_df)
             avgRating = etl.process_ratings(ratings_df)
             topDay = etl.process_diary(diary_df)
+        except HTTPException as e:
+            raise e
         except Exception as e:
             logger.error(f"Something went wrong processing your files: {e}")
             raise HTTPException(status_code=500, detail="An internal server error occurred while analyzing the data.")

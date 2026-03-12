@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s
+
+  external_labels:
+    monitor: 'codelab-monitor'
+
+scrape_configs:
+  # Job 1: Prometheus monitoring its own health
+  - job_name: 'prometheus'
+    scrape_interval: 5s
+    static_configs:
+      - targets: ['localhost:9090']
+  
+  # Job 2: Prometheus monitoring FastAPI backend
+  - job_name: 'boxdmetrics-api'
+    static_configs:
+      - targets: ['backend:8000']

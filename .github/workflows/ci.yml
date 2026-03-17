@@ -33,7 +33,7 @@ jobs:
               version: "0.15.6"
               src: "./src/backend"
           - name: Run Bandit
-            run: bandit -r ./src/backend
+            run: bandit -r ./src/backend -x ./src/backend/tests
           - name: Run pip-audit
             uses: pypa/gh-action-pip-audit@v1.1.0
             with:

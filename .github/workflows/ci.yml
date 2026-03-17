@@ -63,7 +63,9 @@ jobs:
                 pip install -r ./src/backend/requirements.txt
                 pip install -r ./src/backend/requirements-dev.txt
         - name: Run pytest
-          run: pytest ./src/backend/tests/test_etl.py
+          run: |
+            cd src/backend
+            pytest tests/test_etl.py
         - name: Login to GHCR
           uses: docker/login-action@v3
           with:

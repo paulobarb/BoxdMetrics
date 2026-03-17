@@ -1,16 +1,17 @@
-# 1. Ignore Secrets
+# Ignore Secrets
 .env
 .env.local
 
-# 2. Ignore Python Garbage
+# Ignore Python Garbage
 __pycache__/
+.pytest_cache/
 *.py[cod]
 
-# 3. Ignore OS Garbage
+# Ignore OS Garbage
 .DS_Store
 Thumbs.db
 
-# 4. Ignore Local Virtual Envs (if you use them)
+# Ignore Local Virtual Envs
 venv/
 .venv/
 

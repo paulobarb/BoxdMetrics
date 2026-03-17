@@ -4,7 +4,7 @@ from fastapi import HTTPException
 from etl import process_watched, process_ratings, process_diary
 
 
-# Test process_watched function
+# Test process_watched function.
 
 def test_process_watched_valid():
     years = [1990, 1990, 1990, 2000, 2000]
@@ -23,11 +23,13 @@ def test_process_watched_missing_columns():
 
     with pytest.raises(HTTPException) as e:
         process_watched(df)
+    assert e.value.status_code == 400
 
 def test_process_watched_wrong_columns():
     df = pd.DataFrame({'Title': ['Movie 1', 'Movie 2']})
     with pytest.raises(HTTPException) as e:
         process_watched(df)
+    assert e.value.status_code == 400
 
 # ----------------------------
 # Test process_ratings function
@@ -51,11 +53,13 @@ def test_process_ratings_missing_columns():
 
     with pytest.raises(HTTPException) as e:
         process_ratings(df)
+    assert e.value.status_code == 400
 
 def test_process_ratings_wrong_columns():
     df = pd.DataFrame({'Title': ['Movie 1', 'Movie 2']})
     with pytest.raises(HTTPException) as e:
         process_ratings(df)
+    assert e.value.status_code == 400
 
 # ----------------------------
 # Test process_diary function
@@ -79,8 +83,10 @@ def test_process_diary_missing_columns():
 
     with pytest.raises(HTTPException) as e:
         process_diary(df)
+    assert e.value.status_code == 400
 
 def test_process_diary_wrong_columns():
     df = pd.DataFrame({'Title': ['Movie 1', 'Movie 2']})
     with pytest.raises(HTTPException) as e:
         process_diary(df)
+    assert e.value.status_code == 400

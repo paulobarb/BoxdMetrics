@@ -9,6 +9,10 @@ on:
         branches:
             - main
 
+permissions:
+  contents: read      
+  packages: write
+
 jobs:
     security:
       runs-on: ubuntu-latest

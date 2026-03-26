@@ -105,11 +105,26 @@ jobs:
       runs-on: ubuntu-latest
       needs: build
 
+      permissions:
+        id-token: write
+        contents: read
+
       steps:
         - name: Run checkout
           uses: actions/checkout@v4
           with:
             fetch-depth: 0
+
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v6
+          with:
+            audience: sts.amazonaws.com
+            aws-region: eu-north-1
+            role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHub_Actions_Role
+
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v2
             
         - name: Run Trivy vulnerability scanner
           uses: aquasecurity/trivy-action@0.35.0

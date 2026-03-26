@@ -1,4 +1,4 @@
-name: CI Pipeline 
+name: CI Pipeline
 
 on:
     push:
@@ -44,7 +44,7 @@ jobs:
               inputs: ./src/backend/requirements.txt ./src/backend/requirements-dev.txt
               # TODO: Remove ignore when Pygments 2.19.3 is released
               ignore-vulns: |
-                    CVE-2026-4539
+                CVE-2026-4539
           - name: Run Gitleaks
             uses: gitleaks/gitleaks-action@v2.3.9
             env:

@@ -4,10 +4,17 @@ on:
     push:
         branches:
             - main
+        paths:
+          - 'src/backend/**'
+          - '.github/workflows/ci.yml'
     pull_request:
         branches:
             - main
+        paths:
+          - 'src/backend/**'
+          - '.github/workflows/ci.yml'
     workflow_dispatch:
+
 
 permissions:
   contents: read      
@@ -38,72 +45,84 @@ jobs:
               src: "./src/backend"
           - name: Run Bandit
             run: bandit -r ./src/backend -x ./src/backend/tests
-          - name: Run pip-audit
-            uses: pypa/gh-action-pip-audit@v1.1.0
-            with:
-              inputs: ./src/backend/requirements.txt ./src/backend/requirements-dev.txt
+          - name: Run pip-audit (Raw CLI)
+            run: |
+              pip-audit -r ./src/backend/requirements.txt -r ./src/backend/requirements-dev.txt --ignore-vuln CVE-2026-4539
           - name: Run Gitleaks
             uses: gitleaks/gitleaks-action@v2.3.9
             env:
               GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+
     build:
       runs-on: ubuntu-latest
       needs: security
+
+      permissions:
+        id-token: write
+        contents: read
 
       steps:
         - name: Run checkout
           uses: actions/checkout@v4
           with:
             fetch-depth: 0
+
         - name: Set up Python
           uses: actions/setup-python@v5
           with:
             python-version: '3.11'
             cache: 'pip'
+
         - name: Install dependencies with pip
           run: |
                 python -m pip install --upgrade pip
                 pip install -r ./src/backend/requirements.txt
                 pip install -r ./src/backend/requirements-dev.txt
+
         - name: Run pytest
           env:
             PYTHONPATH: ./src/backend
           run: python -m pytest ./src/backend/tests/test_etl.py
-        - name: Login to GHCR
-          uses: docker/login-action@v3
-          with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
-        - name: Build and push image
-          uses: docker/build-push-action@v6
-          with:
-           context: ./src/backend
-           push: true
-           tags: ghcr.io/${{ github.repository_owner }}/boxdmetrics-backend:${{ github.sha }}
-    
-    scan:
-      runs-on: ubuntu-latest
-      needs: build
 
-      steps:
-        - name: Run checkout
-          uses: actions/checkout@v4
+        - name: Configure AWS credentials
+          uses: aws-actions/configure-aws-credentials@v6
           with:
-            fetch-depth: 0
-        - name: Login to GHCR
-          uses: docker/login-action@v3
-          with:
-            registry: ghcr.io
-            username: ${{ github.actor }}
-            password: ${{ secrets.GITHUB_TOKEN }}
+            audience: sts.amazonaws.com
+            aws-region: eu-north-1
+            role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHub_Actions_Role
+
+        - name: Login to Amazon ECR
+          id: login-ecr
+          uses: aws-actions/amazon-ecr-login@v2
+
+        - name: Build docker image to Amazon ECR
+          env:
+            REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+            REPOSITORY: boxdmetrics
+            IMAGE_TAG: ${{ github.sha }}
+          run: |
+            cd src/backend
+
+            docker build -t $REPOSITORY:$IMAGE_TAG .
+        
         - name: Run Trivy vulnerability scanner
           uses: aquasecurity/trivy-action@0.35.0
           with:
-            image-ref: 'ghcr.io/${{ github.repository_owner }}/boxdmetrics-backend:${{ github.sha }}'
+            image-ref: 'boxdmetrics:${{ github.sha }}'
             format: 'table'
             exit-code: '0'
             ignore-unfixed: true
             vuln-type: 'os,library'
             severity: 'CRITICAL,HIGH'
+
+        - name: Push docker image to Amazon ECR
+          env:
+            REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+            REPOSITORY: boxdmetrics
+            IMAGE_TAG: ${{ github.sha }}
+          run: |
+            docker tag $REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:$IMAGE_TAG
+            docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
+            
+        

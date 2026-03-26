@@ -6,13 +6,13 @@ on:
             - main
         paths:
           - 'src/backend/**'
-          - '.github/workflows/ci.yml'
+          - '.github/workflows/backend.yml'
     pull_request:
         branches:
             - main
         paths:
           - 'src/backend/**'
-          - '.github/workflows/ci.yml'
+          - '.github/workflows/backend.yml'
     workflow_dispatch:
 
 

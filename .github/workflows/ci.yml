@@ -38,13 +38,9 @@ jobs:
               src: "./src/backend"
           - name: Run Bandit
             run: bandit -r ./src/backend -x ./src/backend/tests
-          - name: Run pip-audit
-            uses: pypa/gh-action-pip-audit@v1.1.0
-            with:
-              inputs: ./src/backend/requirements.txt ./src/backend/requirements-dev.txt
-              # TODO: Remove ignore when Pygments 2.19.3 is released
-              ignore-vulns: |
-                CVE-2026-4539
+          - name: Run pip-audit (Raw CLI)
+            run: |
+              pip-audit -r ./src/backend/requirements.txt -r ./src/backend/requirements-dev.txt --ignore-vuln CVE-2026-4539
           - name: Run Gitleaks
             uses: gitleaks/gitleaks-action@v2.3.9
             env:

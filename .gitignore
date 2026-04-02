@@ -24,3 +24,4 @@ src/backend/data/
 *.tfstate
 *.tfstate.backup
 .terraform.lock.hcl
+.terraform.tfstate.lock.info

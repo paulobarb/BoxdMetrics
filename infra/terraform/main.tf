@@ -3,7 +3,7 @@
 # =========
 
 resource "aws_ecr_repository" "api" {
-  name                 = "boxdmetrics-api"
+  name                 = "${var.project_name}-api-${var.environment}"
   image_tag_mutability = "MUTABLE"
   force_delete         = true
 
@@ -20,11 +20,11 @@ resource "aws_ecr_repository" "api" {
 # == S3 ==
 # =========
 
-resource "aws_s3_bucket" "terraform_state"{
-  bucket = "boxdmetrics-terraform-state-${random_id.suffix.hex}"
+resource "aws_s3_bucket" "terraform_state" {
+  bucket = "${var.project_name}-terraform-state-${random_id.suffix.hex}"
 
   #lifecycle {
-    #prevent_destroy = true
+  #prevent_destroy = true
   #}
 }
 
@@ -40,9 +40,9 @@ resource "aws_s3_bucket_versioning" "enabled" {
 # ==============
 
 resource "aws_dynamodb_table" "terraform_locks" {
-  name           = "boxdmetrics-terraform-locks"
-  billing_mode   = "PAY_PER_REQUEST"
-  hash_key       = "LockID"
+  name         = "${var.project_name}-terraform-locks"
+  billing_mode = "PAY_PER_REQUEST"
+  hash_key     = "LockID"
 
   attribute {
     name = "LockID"
@@ -57,8 +57,8 @@ resource "random_id" "suffix" {
 # =========
 # == ECS ==
 # =========
-resource "aws_ecs_cluster" "main"{
-  name  = "boxdmetrics-cluster"
+resource "aws_ecs_cluster" "main" {
+  name = "${var.project_name}-cluster"
 
   setting {
     name  = "containerInsights"
@@ -71,7 +71,7 @@ resource "aws_ecs_cluster" "main"{
 # ===================
 
 resource "aws_iam_role" "ecs_execution_role" {
-  name = "boxdmetrics-ecs-execution-role"
+  name = "${var.project_name}-ecs-execution-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -94,7 +94,7 @@ resource "aws_iam_role_policy_attachment" "ecs_execution_role_policy" {
 }
 
 resource "aws_iam_role" "ecs_task_role" {
-  name = "boxdmetrics-ecs-task-role"
+  name = "${var.project_name}-ecs-task-role"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -113,25 +113,25 @@ resource "aws_iam_role" "ecs_task_role" {
 # ==================
 
 resource "aws_ecs_task_definition" "api" {
-  family                   = "boxdmetrics-api"
+  family                   = "${var.project_name}-api-${var.environment}"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
-  cpu                      = 256
-  memory                   = 512
+  cpu                      = var.task_cpu
+  memory                   = var.task_memory
 
   execution_role_arn = aws_iam_role.ecs_execution_role.arn
   task_role_arn      = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
-      "name": "boxdmetrics-api",
-      "image": "${aws_ecr_repository.api.repository_url}:latest",
-      "essential": true
-    
+      name      = "${var.project_name}-api",
+      image     = "${aws_ecr_repository.api.repository_url}:latest",
+      essential = true
+
       portMappings = [
         {
-          containerPort = 8000
-          hostPort      = 8000
+          containerPort = var.container_port
+          hostPort      = var.container_port
           protocol      = "tcp"
         }
       ]
@@ -140,7 +140,7 @@ resource "aws_ecs_task_definition" "api" {
         logDriver = "awslogs"
         options = {
           "awslogs-group"         = aws_cloudwatch_log_group.api.name
-          "awslogs-region"        = "eu-north-1"
+          "awslogs-region"        = var.aws_region
           "awslogs-stream-prefix" = "ecs"
         }
       }
@@ -176,10 +176,10 @@ resource "aws_internet_gateway" "igw" {
 # =============
 
 resource "aws_subnet" "public_subnet" {
-  vpc_id            = aws_vpc.main_vpc.id
-  cidr_block        = "10.10.10.0/25"
+  vpc_id                  = aws_vpc.main_vpc.id
+  cidr_block              = "10.10.10.0/25"
   map_public_ip_on_launch = true
-  availability_zone = "eu-north-1a"
+  availability_zone       = "${var.aws_region}a"
 }
 
 # ============
@@ -206,21 +206,21 @@ resource "aws_route_table_association" "public_assoc" {
 
 resource "aws_security_group" "web_sg" {
   vpc_id = aws_vpc.main_vpc.id
-  name   = "boxdmetrics-web-sg"
+  name   = "${var.project_name}-web-sg"
 
 
   ingress {
-    from_port   = 8000
-    to_port     = 8000
+    from_port   = var.container_port
+    to_port     = var.container_port
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow HTTP from anywhere
+    cidr_blocks = ["0.0.0.0/0"] # Allow HTTP from anywhere
   }
 
   egress {
     from_port   = 0
     to_port     = 0
     protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]  # Allow all outbound traffic
+    cidr_blocks = ["0.0.0.0/0"] # Allow all outbound traffic
   }
 }
 
@@ -228,8 +228,8 @@ resource "aws_security_group" "web_sg" {
 # == CloudWatch ==
 # ================
 
-resource "aws_cloudwatch_log_group" "api"{
-  name              = "/ecs/boxdmetrics-api"
+resource "aws_cloudwatch_log_group" "api" {
+  name              = "/ecs/${var.project_name}-api"
   retention_in_days = 7
 }
 
@@ -238,7 +238,7 @@ resource "aws_cloudwatch_log_group" "api"{
 # =================
 
 resource "aws_ecs_service" "api" {
-  name             = "boxdmetrics-api-service"
+  name             = "${var.project_name}-api-service-${var.environment}"
   cluster          = aws_ecs_cluster.main.id
   task_definition  = aws_ecs_task_definition.api.arn
   desired_count    = 1
@@ -246,7 +246,7 @@ resource "aws_ecs_service" "api" {
   platform_version = "LATEST"
 
   network_configuration {
-    subnets          = [aws_subnet.public_subnet.id] 
+    subnets          = [aws_subnet.public_subnet.id]
     assign_public_ip = true
     security_groups  = [aws_security_group.web_sg.id]
   }

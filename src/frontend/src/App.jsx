@@ -18,7 +18,7 @@ function App() {
 
       // await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const response = await fetch("http://localhost:8000/upload/", {
+      const response = await fetch("/api/upload/", {
         method: "POST",
         body: formData,
       });

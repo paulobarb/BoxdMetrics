@@ -124,7 +124,7 @@ resource "aws_ecs_task_definition" "api" {
 
   container_definitions = jsonencode([
     {
-      name      = "${var.project_name}-api",
+      name      = "${var.project_name}-api-${var.environment}",
       image     = "${aws_ecr_repository.api.repository_url}:latest",
       essential = true
 
@@ -229,7 +229,7 @@ resource "aws_security_group" "web_sg" {
 # ================
 
 resource "aws_cloudwatch_log_group" "api" {
-  name              = "/ecs/${var.project_name}-api"
+  name              = "/ecs/${var.project_name}-api-${var.environment}"
   retention_in_days = 7
 }
 

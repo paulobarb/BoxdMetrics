@@ -42,62 +42,72 @@ function App() {
   };
 
   return (
-    <main>
-      <h1>BoxdMetrics</h1>
+    <main className="container">
+      <header>
+        <h1>BoxdMetrics</h1>
+        <p>Upload your watched, ratings, and diary CSVs to see your stats.</p>
+      </header>
 
-      <form onSubmit={handleUpload}>
-        <input 
-          type="file"
-          name="files" 
-          multiple accept=".csv"
-          required />
-        <button type="submit" disabled={loading}>
-          {loading ? "Processing..." : "Upload"}
+      <form onSubmit={handleUpload} className="upload-form">
+        <div className="file-input-wrapper">
+          <input 
+            type="file"
+            name="files" 
+            multiple 
+            accept=".csv"
+            required 
+            id="file-upload"
+          />
+        </div>
+        <button type="submit" disabled={loading} className="submit-btn">
+          {loading ? "Processing..." : "Generate Dashboard"}
         </button>
       </form>
 
       { !loading && error && (
-         <div style={{ color: '#ff6b6b', padding: '10px', marginTop: '30px', border: '1px solid #ff6b6b', borderRadius: '5px' }}>
+         <div className="error-banner">
               {error}
-            </div>
+         </div>
       )}
 
-      { !loading && !error && displayStats && (
-      <div style={{ marginTop: '30px' }}>
-          <h2>Your Stats</h2>
+      { !loading && !error && displayStats && !displayStats.detail && (
+        <div className="dashboard">
+          <h2>Your Cinematic Profile</h2>
           
-          {displayStats.detail ? (
-            <div style={{ color: '#ff6b6b', padding: '10px', border: '1px solid #ff6b6b', borderRadius: '5px' }}>
-              {displayStats.detail}
+          <div className="bento-grid">
+            
+            <div className="bento-card highlight">
+              <span className="icon">🎬</span>
+              <h3>{displayStats.totalMovies}</h3>
+              <p>Total Movies</p>
             </div>
-          ) : (
-            <div className="showStatsInside">
-              
-              <div>
-                <strong>Total Movies:</strong> {displayStats.totalMovies}
-              </div>
-              
-              <div>
-                <strong>Average Rating:</strong> {displayStats.avgRating} / 5
-              </div>
-              
-              <div>
-                <strong>Favorite Decade:</strong> {displayStats.topDecade}s 
-                <span style={{ fontSize: '0.9rem', color: '#aaa', marginLeft: '8px' }}>
-                  ({displayStats.topCount} movies)
-                </span>
-              </div>
-              
-              <div>
-                <strong>Top Watch Day:</strong> {displayStats.topDay}
-              </div>
-              
-              <div>
-                <strong>Era Spanned:</strong> {displayStats.oldestYear} to {displayStats.newestYear}
-              </div>
+            
+            <div className="bento-card">
+              <span className="icon">⭐</span>
+              <h3>{displayStats.avgRating}</h3>
+              <p>Average Rating</p>
+            </div>
+            
+            <div className="bento-card">
+              <span className="icon">🕰️</span>
+              <h3>{displayStats.topDecade}s</h3>
+              <p>Favorite Decade</p>
+              <small>{displayStats.topCount} films</small>
+            </div>
+            
+            <div className="bento-card">
+              <span className="icon">🍿</span>
+              <h3>{displayStats.topDay}</h3>
+              <p>Top Watch Day</p>
+            </div>
+            
+            <div className="bento-card wide">
+              <span className="icon">🎞️</span>
+              <h3>{displayStats.oldestYear} - {displayStats.newestYear}</h3>
+              <p>Era Spanned</p>
+            </div>
 
-            </div>
-          )}
+          </div>
         </div>
       )}
     </main>

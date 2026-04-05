@@ -121,10 +121,10 @@ jobs:
             REPOSITORY: boxdmetrics-api-dev
             IMAGE_TAG: ${{ github.sha }}
           run: |
-            docker tag boxdmetrics-api:$IMAGE_TAG $REGISTRY/$REPOSITORY:$IMAGE_TAG
+            docker tag boxdmetrics-api-dev:$IMAGE_TAG $REGISTRY/$REPOSITORY:$IMAGE_TAG
             docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
 
-            docker tag boxdmetrics-api:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
+            docker tag boxdmetrics-api-dev:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
             docker push $REGISTRY/$REPOSITORY:latest
             
         

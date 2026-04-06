@@ -7,10 +7,32 @@ from typing import List
 import etl
 from prometheus_fastapi_instrumentator import Instrumentator
 import logging
+import urllib.request
+from contextlib import asynccontextmanager
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="BoxdMetrics API")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if os.getenv("ENVIRONMENT") == "production":
+        duck_token = os.getenv("DUCKDNS_TOKEN")
+        duck_domain = os.getenv("DUCKDNS_DOMAIN")
+        
+        if duck_token and duck_domain:
+            try:
+                url = f"https://www.duckdns.org/update?domains={duck_domain}&token={duck_token}&ip="
+                response = urllib.request.urlopen(url)
+                result = response.read().decode('utf-8')
+
+                if result.strip() == "OK":
+                    logger.info(f"Successfully updated DuckDNS for {duck_domain}")
+                else:
+                    logger.error(f"DuckDNS failed: {result}")
+            except Exception as e:
+                logger.error(f"Failed to update DuckDNS: {e}")
+    yield
+
+app = FastAPI(title="BoxdMetrics API", lifespan=lifespan)
 
 security = HTTPBearer()
 API_KEY = os.getenv("API_SECRET_KEY")

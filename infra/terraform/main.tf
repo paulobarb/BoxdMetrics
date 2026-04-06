@@ -136,6 +136,14 @@ resource "aws_ecs_task_definition" "api" {
         {
           name  = "API_SECRET_KEY"
           value = var.api_secret_key
+        },
+        {
+          name  = "DUCKDNS_DOMAIN"
+          value = "boxdmetrics-api"
+        },
+        {
+          name  = "DUCKDNS_TOKEN"
+          value = var.duckdns_token
         }
       ]
 

@@ -1,6 +1,6 @@
 import os
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException, Security, Depends
+from fastapi import FastAPI, UploadFile, File, HTTPException, Security
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List

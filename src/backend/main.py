@@ -19,7 +19,7 @@ API_KEY = os.getenv("API_SECRET_KEY")
 # --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    if os.getenv("ENVIRONMENT") == "production":
+    #if os.getenv("ENVIRONMENT") == "production":
         token = os.getenv("DUCKDNS_TOKEN")
         domain = os.getenv("DUCKDNS_DOMAIN")
 

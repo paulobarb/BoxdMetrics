@@ -7,9 +7,8 @@ export default async function handler(req, res) {
   }
 
   // Path
-  const { path } = req.query;
-  const actualPath = Array.isArray(path) ? path.join('/') : path || '';
-  const destinationUrl = `http://${backendIp}:8000/${actualPath}`;
+  const targetPath = req.url.replace(/^\/api/, '');
+  const destinationUrl = `http://${backendIp}:8000${targetPath}`
 
   try {
     const fetchOptions = {

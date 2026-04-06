@@ -128,6 +128,17 @@ resource "aws_ecs_task_definition" "api" {
       image     = "${aws_ecr_repository.api.repository_url}:latest",
       essential = true
 
+      environment = [
+        {
+          name  = "ENVIRONMENT"
+          value = var.environment
+        },
+        {
+          name  = "API_SECRET_KEY"
+          value = var.api_secret_key
+        }
+      ]
+
       portMappings = [
         {
           containerPort = var.container_port

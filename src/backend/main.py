@@ -1,6 +1,8 @@
+import os
 import pandas as pd
-from fastapi import FastAPI, UploadFile, File, HTTPException
+from fastapi import FastAPI, UploadFile, File, HTTPException, Security, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from typing import List
 import etl
 from prometheus_fastapi_instrumentator import Instrumentator
@@ -10,10 +12,25 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="BoxdMetrics API")
 
+security = HTTPBearer()
+API_KEY = os.getenv("API_SECRET_KEY")
+
+# API Key validation dependency
+async def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security)):
+    """Verify the API key from the Authorization header"""
+    if not API_KEY:
+          raise HTTPException(status_code=500, detail="API key not configured on server")
+  
+    if credentials.credentials != API_KEY:
+          raise HTTPException(status_code=401, detail="Invalid API key")
+
+    return True
+
 Instrumentator().instrument(app).expose(app)
 
 origins = [
-    "http://localhost:5173"
+    "http://localhost:5173",
+    "https://boxd-metrics.vercel.app"
 ]
 
 app.add_middleware(
@@ -26,7 +43,10 @@ app.add_middleware(
 
 
 @app.post("/upload/")
-def upload_files(files: List[UploadFile] = File(...)):
+def upload_files(
+    files: List[UploadFile] = File(...),
+    authenticated: bool = Security(verify_api_key) 
+):
     watched_df = None
     ratings_df = None
     diary_df = None
@@ -48,7 +68,7 @@ def upload_files(files: List[UploadFile] = File(...)):
             raise HTTPException(status_code=500, detail="An internal server error occurred while reading the files.")
 
     if watched_df is not None and ratings_df is not None and diary_df is not None:
-        try: 
+        try:
             topCnt, topDec, oldestYear, newestYear = etl.process_watched(watched_df)
             avgRating = etl.process_ratings(ratings_df)
             topDay = etl.process_diary(diary_df)

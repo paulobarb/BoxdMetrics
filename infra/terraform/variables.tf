@@ -38,3 +38,9 @@ variable "task_memory" {
   type        = number
   default     = 512
 }
+
+variable "api_secret_key" {
+  description = "Secret password for the FastAPI backend"
+  type        = string
+  sensitive   = true
+}

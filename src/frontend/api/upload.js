@@ -16,6 +16,7 @@ export default async function handler(req, res) {
       headers: {
         ...req.headers,
         'host': `${backendIp}:8000`,
+        'Authorization': `Bearer ${process.env.API_SECRET_KEY}`
       },
       // Pass the raw, unparsed stream directly to AWS
       body: req.method !== 'GET' && req.method !== 'HEAD' ? req : undefined,

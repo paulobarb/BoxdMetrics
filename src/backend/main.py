@@ -1,8 +1,7 @@
 import os
 import logging
+import httpx
 import pandas as pd
-import urllib.request
-import asyncio
 from typing import List
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, UploadFile, File, HTTPException, Security
@@ -17,33 +16,36 @@ logger = logging.getLogger(__name__)
 DUCKDNS_URL = os.getenv("DUCKDNS_API_URL", "https://www.duckdns.org/update")
 API_KEY = os.getenv("API_SECRET_KEY")
 
-# LIFESPAN ---
+# --- LIFESPAN ---
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     if os.getenv("ENVIRONMENT") == "production":
         token = os.getenv("DUCKDNS_TOKEN")
         domain = os.getenv("DUCKDNS_DOMAIN")
-        
+
         if token and domain:
             try:
                 url = f"{DUCKDNS_URL}?domains={domain}&token={token}&ip="
 
-                loop = asyncio.get_event_loop()
-                def fetch_url():
-                    with urllib.request.urlopen(url) as response:
-                        return response.read().decode('utf-8')
-                
-                result = await loop.run_in_executor(None, fetch_url)
+                # Validate HTTPS scheme (security fix for Bandit B310)
+                if not url.startswith("https://"):
+                    logger.error(f"Insecure URL scheme: {url}")
+                    raise ValueError("Only HTTPS URLs allowed for DuckDNS")
 
-                if "OK" in result:
+                async with httpx.AsyncClient() as client:
+                    response = await client.get(url, timeout=10.0)
+                    result = response.text.strip()
+
+                if result == "OK":
                     logger.info(f"DuckDNS updated for {domain}")
                 else:
-                    logger.error(f"DuckDNS error: {result}")
+                    logger.error(f"DuckDNS update failed: {result}")
             except Exception as e:
-                logger.error(f"Failed to update DuckDNS: {e}")
+                logger.error(f"DuckDNS error: {e}")
     yield
 
 app = FastAPI(title="BoxdMetrics API", lifespan=lifespan)
+
 
 # --- SECURITY ---
 security = HTTPBearer()

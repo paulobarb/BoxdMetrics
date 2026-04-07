@@ -4,10 +4,13 @@ import httpx
 import pandas as pd
 from typing import List
 from contextlib import asynccontextmanager
-from fastapi import FastAPI, UploadFile, File, HTTPException, Security
+from fastapi import FastAPI, UploadFile, File, HTTPException, Security, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from prometheus_fastapi_instrumentator import Instrumentator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
 
 import etl
 
@@ -43,15 +46,35 @@ async def lifespan(app: FastAPI):
             logger.error(f"DuckDNS error: {e}")
     yield
 
-app = FastAPI(title="BoxdMetrics API", lifespan=lifespan)
+app = FastAPI(
+    title="BoxdMetrics API", 
+    lifespan=lifespan,
+    docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",
+    redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc"
+)
 
+# 1. Create a custom function to find the real IP
+def get_real_ip(request: Request):
+    # Check if the proxy passed the real IP
+    forwarded_for = request.headers.get("X-Forwarded-For")
+    if forwarded_for:
+        # Sometimes this is a comma-separated list, grab the first one
+        return forwarded_for.split(",")[0].strip()
+    
+    # Fallback to standard network IP if running locally without proxy
+    return request.client.host if request.client else "127.0.0.1"
+
+# 2. Tell SlowAPI to use your custom function!
+limiter = Limiter(key_func=get_real_ip)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- SECURITY ---
 security = HTTPBearer()
 
 async def verify_api_key(credentials: HTTPAuthorizationCredentials = Security(security)):
     if not API_KEY:
-        raise HTTPException(status_code=500, detail="API key not configured")
+        raise HTTPException(status_code=503, detail="API key not configured")
     if credentials.credentials != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API key")
     return True
@@ -69,7 +92,9 @@ app.add_middleware(
 
 # --- ROUTES ---
 @app.post("/upload/")
+@limiter.limit("3/minute")
 def upload_files(
+    request: Request,
     files: List[UploadFile] = File(...),
     authenticated: bool = Security(verify_api_key) 
 ):
@@ -78,6 +103,14 @@ def upload_files(
     diary_df = None
 
     for uploaded_file in files:
+
+        uploaded_file.file.seek(0, os.SEEK_END)
+        file_size = uploaded_file.file.tell()
+        uploaded_file.file.seek(0)
+        
+        if file_size > 2 * 1024 * 1024:
+            raise HTTPException(status_code=400, detail=f"File {uploaded_file.filename} is too large. Max 2MB.")
+
         try:
             if uploaded_file.filename == "watched.csv":
                 watched_df = pd.read_csv(uploaded_file.file)

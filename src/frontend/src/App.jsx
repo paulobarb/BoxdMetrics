@@ -12,7 +12,13 @@ function App() {
     setLoading(true);
     setError("");
 
-    const formData = new FormData(e.target);
+    const formData = new FormData();
+
+    const fileInput = e.target.elements.files; 
+    
+    for (let i = 0; i < fileInput.files.length; i++) {
+      formData.append("files", fileInput.files[i]);
+    }
 
     try {      
 
@@ -26,7 +32,7 @@ function App() {
       const data = await response.json();
 
       if(!response.ok) {
-        setError(data.detail);
+        setError(JSON.stringify(data.detail) || "Upload failed");
         return;
       };
 

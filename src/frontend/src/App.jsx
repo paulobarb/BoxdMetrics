@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 function App() {
 
-  const [displayStats, setDisplayData] = useState(null);
+  const [displayStats, setDisplayStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
@@ -12,29 +12,50 @@ function App() {
     setLoading(true);
     setError("");
 
-    const formData = new FormData(e.target);
+    const formData = new FormData();
+
+    const fileInput = e.target.elements.files; 
+    
+    for (let i = 0; i < fileInput.files.length; i++) {
+      formData.append("files", fileInput.files[i]);
+    }
 
     try {      
 
-      // await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const response = await fetch("http://localhost:8000/upload/", {
+      const response = await fetch("/api/upload/", {
         method: "POST",
         body: formData,
       });
       
       const data = await response.json();
 
-      if(!response.ok) {
-        setError(data.detail);
-        return;
-      };
+      if (!response.ok) {
+
+        const errorMessages = {
+          400: "Invalid file format. Please check your CSV files.",
+          401: "Authentication failed. Please check your credentials.",
+          413: "File size too large. Maximum allowed is 2MB per file.",
+          429: "Too many requests. Please wait 60 seconds before trying again.",
+          500: "Server error processing your files. Please try again later."
+        };
+
+        const defaultMsg = `Upload failed (${response.status}). Please check your connection.`;
+        const errorMsg = errorMessages[response.status] || defaultMsg;
+
+        if (data.detail) {
+          const detailMsg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+          setError(`Error: ${detailMsg}`);
+        } else {
+          setError(errorMsg);
+        }
+      }
 
       console.log("Your data:", data);
-      setDisplayData(data);
+      setDisplayStats(data);
     } catch (error) {
-      console.error("Something went wrong:", error);
-      setError("Unable to connect to the server. Please try again.");
+      console.error("Network/connection error:", error);
+      setError("Unable to connect to the server. Please check your internet connection and try again.");
     } finally{
       setLoading(false);
       e.target.reset(); // Clear the file input
@@ -42,62 +63,72 @@ function App() {
   };
 
   return (
-    <main>
-      <h1>BoxdMetrics</h1>
+    <main className="container">
+      <header>
+        <h1>BoxdMetrics</h1>
+        <p>Upload your watched, ratings, and diary CSVs to see your stats.</p>
+      </header>
 
-      <form onSubmit={handleUpload}>
-        <input 
-          type="file"
-          name="files" 
-          multiple accept=".csv"
-          required />
-        <button type="submit" disabled={loading}>
-          {loading ? "Processing..." : "Upload"}
+      <form onSubmit={handleUpload} className="upload-form">
+        <div className="file-input-wrapper">
+          <input 
+            type="file"
+            name="files" 
+            multiple 
+            accept=".csv"
+            required 
+            id="file-upload"
+          />
+        </div>
+        <button type="submit" disabled={loading} className="submit-btn">
+          {loading ? "Processing..." : "Generate Dashboard"}
         </button>
       </form>
 
       { !loading && error && (
-         <div style={{ color: '#ff6b6b', padding: '10px', marginTop: '30px', border: '1px solid #ff6b6b', borderRadius: '5px' }}>
+         <div className="error-banner">
               {error}
-            </div>
+         </div>
       )}
 
-      { !loading && !error && displayStats && (
-      <div style={{ marginTop: '30px' }}>
-          <h2>Your Stats</h2>
+      { !loading && !error && displayStats && !displayStats.detail && (
+        <div className="dashboard">
+          <h2>Your Cinematic Profile</h2>
           
-          {displayStats.detail ? (
-            <div style={{ color: '#ff6b6b', padding: '10px', border: '1px solid #ff6b6b', borderRadius: '5px' }}>
-              {displayStats.detail}
+          <div className="bento-grid">
+            
+            <div className="bento-card highlight">
+              <span className="icon">🎬</span>
+              <h3>{displayStats.totalMovies}</h3>
+              <p>Total Movies</p>
             </div>
-          ) : (
-            <div className="showStatsInside">
-              
-              <div>
-                <strong>Total Movies:</strong> {displayStats.totalMovies}
-              </div>
-              
-              <div>
-                <strong>Average Rating:</strong> {displayStats.avgRating} / 5
-              </div>
-              
-              <div>
-                <strong>Favorite Decade:</strong> {displayStats.topDecade}s 
-                <span style={{ fontSize: '0.9rem', color: '#aaa', marginLeft: '8px' }}>
-                  ({displayStats.topCount} movies)
-                </span>
-              </div>
-              
-              <div>
-                <strong>Top Watch Day:</strong> {displayStats.topDay}
-              </div>
-              
-              <div>
-                <strong>Era Spanned:</strong> {displayStats.oldestYear} to {displayStats.newestYear}
-              </div>
+            
+            <div className="bento-card">
+              <span className="icon">⭐</span>
+              <h3>{displayStats.avgRating}</h3>
+              <p>Average Rating</p>
+            </div>
+            
+            <div className="bento-card">
+              <span className="icon">🕰️</span>
+              <h3>{displayStats.topDecade}s</h3>
+              <p>Favorite Decade</p>
+              <small>{displayStats.topCount} films</small>
+            </div>
+            
+            <div className="bento-card">
+              <span className="icon">🍿</span>
+              <h3>{displayStats.topDay}</h3>
+              <p>Top Watch Day</p>
+            </div>
+            
+            <div className="bento-card wide">
+              <span className="icon">🎞️</span>
+              <h3>{displayStats.oldestYear} - {displayStats.newestYear}</h3>
+              <p>Era Spanned</p>
+            </div>
 
-            </div>
-          )}
+          </div>
         </div>
       )}
     </main>

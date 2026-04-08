@@ -2,7 +2,7 @@
 
 > A data analytics API built on a DevSecOps foundation — containerized, automatically scanned, and monitored with Prometheus and Grafana.
 
-![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/ci.yml?label=CI%2FCD&style=flat-square)
+![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/backend.yml?label=CI%2FCD&style=flat-square)
 ![License](https://img.shields.io/github/license/paulobarb/BoxdMetrics?style=flat-square)
 
 ---

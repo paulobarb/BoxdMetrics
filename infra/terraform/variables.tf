@@ -38,3 +38,15 @@ variable "task_memory" {
   type        = number
   default     = 512
 }
+
+variable "api_secret_key" {
+  description = "Secret password for the FastAPI backend"
+  type        = string
+  sensitive   = true
+}
+
+variable "duckdns_token" {
+  description = "Secret token for DuckDNS dynamic IP updates"
+  type = string
+  sensitive = true
+}

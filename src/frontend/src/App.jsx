@@ -3,7 +3,7 @@ import { useState } from 'react';
 
 function App() {
 
-  const [displayStats, setDisplayData] = useState(null);
+  const [displayStats, setDisplayStats] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   
@@ -12,29 +12,50 @@ function App() {
     setLoading(true);
     setError("");
 
-    const formData = new FormData(e.target);
+    const formData = new FormData();
+
+    const fileInput = e.target.elements.files; 
+    
+    for (let i = 0; i < fileInput.files.length; i++) {
+      formData.append("files", fileInput.files[i]);
+    }
 
     try {      
 
-      // await new Promise(resolve => setTimeout(resolve, 2000));
 
-      const response = await fetch("http://localhost:8000/upload/", {
+      const response = await fetch("/api/upload/", {
         method: "POST",
         body: formData,
       });
       
       const data = await response.json();
 
-      if(!response.ok) {
-        setError(data.detail);
-        return;
-      };
+      if (!response.ok) {
+
+        const errorMessages = {
+          400: "Invalid file format. Please check your CSV files.",
+          401: "Authentication failed. Please check your credentials.",
+          413: "File size too large. Maximum allowed is 2MB per file.",
+          429: "Too many requests. Please wait 60 seconds before trying again.",
+          500: "Server error processing your files. Please try again later."
+        };
+
+        const defaultMsg = `Upload failed (${response.status}). Please check your connection.`;
+        const errorMsg = errorMessages[response.status] || defaultMsg;
+
+        if (data.detail) {
+          const detailMsg = typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail);
+          setError(`Error: ${detailMsg}`);
+        } else {
+          setError(errorMsg);
+        }
+      }
 
       console.log("Your data:", data);
-      setDisplayData(data);
+      setDisplayStats(data);
     } catch (error) {
-      console.error("Something went wrong:", error);
-      setError("Unable to connect to the server. Please try again.");
+      console.error("Network/connection error:", error);
+      setError("Unable to connect to the server. Please check your internet connection and try again.");
     } finally{
       setLoading(false);
       e.target.reset(); // Clear the file input

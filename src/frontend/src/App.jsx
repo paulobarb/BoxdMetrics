@@ -33,10 +33,10 @@ function App() {
       if (!response.ok) {
 
         const errorMessages = {
-          400: "Invalid file format. Please check your CSV files."
-          401: "Authentication failed. Please check your credentials."
-          413: "File size too large. Maximum allowed is 2MB per file."
-          429: "Too many requests. Please wait 60 seconds before trying again."
+          400: "Invalid file format. Please check your CSV files.",
+          401: "Authentication failed. Please check your credentials.",
+          413: "File size too large. Maximum allowed is 2MB per file.",
+          429: "Too many requests. Please wait 60 seconds before trying again.",
           500: "Server error processing your files. Please try again later."
         };
 

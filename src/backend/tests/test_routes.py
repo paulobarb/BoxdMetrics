@@ -8,7 +8,9 @@ from backend.main import app
 client = TestClient(app)
 API_KEY = os.environ["API_SECRET_KEY"]
 
-# --- SUCCESS TESTS ---
+# -----------------
+# Success tests
+# -----------------
 
 def test_upload_success():
     fake_watched = io.BytesIO(b"Year\n1999\n2001\n2008")
@@ -33,7 +35,9 @@ def test_upload_success():
     assert data["totalMovies"] == 3
 
 
-# --- RATE LIMITER TEST ---
+# -----------------
+# Test rate limiter
+# -----------------
 
 def test_rate_limiting():
     headers = {
@@ -52,7 +56,9 @@ def test_rate_limiting():
     assert response.status_code == 429
     assert "Rate limit exceeded" in response.text
 
-# --- SECURITY TESTS ---
+# -------------
+# Test security
+# -------------
 
 def test_upload_missing_auth_header():
     # Sending no API key should get a 401 Forbidden

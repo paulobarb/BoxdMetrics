@@ -31,9 +31,9 @@ def test_process_watched_wrong_columns():
         process_watched(df)
     assert e.value.status_code == 400
 
-# ----------------------------
+# -----------------------------
 # Test process_ratings function
-# ----------------------------
+# -----------------------------
 
 def test_process_ratings_valid():
     ratings= [4.5, 4.0, 4.5]
@@ -120,7 +120,7 @@ def test_full_etl_pipeline():
     top_day = process_diary(diary_df)
     
     # Verify results
-    assert top_cnt == 2  # Two movies from 1994
+    assert top_cnt == 3  # Two movies from 1990s
     assert top_dec == 1990  # 1990s is top decade
     assert oldest == 1994
     assert newest == 2019

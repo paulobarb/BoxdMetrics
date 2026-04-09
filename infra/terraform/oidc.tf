@@ -71,15 +71,6 @@ resource "aws_iam_role_policy" "github_actions_policy" {
           "ecr:PutImage"
         ]
         Resource = aws_ecr_repository.api.arn
-      },
-      {
-        Sid    = "AllowECSRestart"
-        Effect = "Allow"
-        Action = [
-          "ecs:UpdateService",
-          "ecs:DescribeServices"
-        ]
-        Resource = aws_ecs_service.api.id
       }
     ]
   })

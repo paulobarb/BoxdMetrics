@@ -126,5 +126,3 @@ def test_full_etl_pipeline():
     assert newest == 2019
     assert avg_rating == 4.42  # Rounded to 2 decimals
     assert top_day == "Saturday"
-    
-    print("✅ Full ETL pipeline integration test passed!")

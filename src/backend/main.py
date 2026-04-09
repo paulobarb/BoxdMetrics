@@ -2,6 +2,7 @@ import os
 import httpx
 import logging
 
+from mangum import Mangum
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -62,3 +63,5 @@ app.add_middleware(
 )
 
 app.include_router(upload_router, prefix="/api")
+
+handler = Mangum(app)

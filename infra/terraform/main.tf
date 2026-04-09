@@ -80,11 +80,18 @@ resource "aws_lambda_function" "api" {
   image_uri     = "${aws_ecr_repository.api.repository_url}:latest"
   timeout       = 30
   memory_size   = var.lambda_memory
+
+  environment {
+    variables = {
+      API_SECRET_KEY = var.api_secret_key
+      ENVIRONMENT    = "production"  # Matches your main.py config!
+    }
+  }
 }
 
-# ==========================================
-# == Lambda Function URL (The Public Link) ==
-# ==========================================
+# =========================
+# == Lambda Function URL ==
+# =========================
 resource "aws_lambda_function_url" "api_url" {
   function_name      = aws_lambda_function.api.function_name
   authorization_type = "NONE"

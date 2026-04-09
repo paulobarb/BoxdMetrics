@@ -100,7 +100,7 @@ resource "aws_lambda_function_url" "api_url" {
     allow_credentials = true
     allow_origins     = [
         "http://localhost:5173",
-        "http://localhost:3000",
+        "http://localhost:3001",
         "https://boxd-metrics.vercel.app"
     ]
     allow_methods     = ["POST"]

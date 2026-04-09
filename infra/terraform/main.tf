@@ -102,7 +102,7 @@ resource "aws_lambda_function_url" "api_url" {
         "http://localhost:5173",
         "https://boxd-metrics.vercel.app"
     ]
-    allow_methods     = ["POST", "OPTIONS"]
+    allow_methods     = ["POST"]
     allow_headers     = ["*"]
     expose_headers    = ["keep-alive", "date"]
     max_age           = 86400

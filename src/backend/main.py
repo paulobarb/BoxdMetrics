@@ -53,14 +53,14 @@ app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # --- MIDDLEWARE & METRICS ---
-Instrumentator().instrument(app).expose(app)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "https://boxd-metrics.vercel.app"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+#Instrumentator().instrument(app).expose(app)
+#app.add_middleware(
+#    CORSMiddleware,
+#    allow_origins=["http://localhost:5173", "https://boxd-metrics.vercel.app"],
+#    allow_credentials=True,
+#    allow_methods=["*"],
+#    allow_headers=["*"],
+#)
 
 app.include_router(upload_router, prefix="/api")
 

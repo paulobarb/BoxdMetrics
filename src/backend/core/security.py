@@ -1,8 +1,11 @@
-from fastapi import HTTPException, Request, Security, Header
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+import os
+from fastapi import HTTPException, Request, Header
 from slowapi import Limiter
+from slowapi.util import get_remote_address
 
 from core.config import API_KEY
+
+is_aws = os.environ.get('LAMBDA_TASK_ROOT')
 
 # --- RATE LIMITER ---
 def get_real_ip(request: Request):
@@ -11,8 +14,10 @@ def get_real_ip(request: Request):
         return forwarded_for.split(",")[0].strip()
     return request.client.host if request.client else "127.0.0.1"
 
-limiter = Limiter(key_func=get_real_ip)
-
+if is_aws:
+    limiter = Limiter(key_func=get_real_ip)
+else:
+    limiter = Limiter(key_func=get_remote_address, storage_uri="redis://localhost:6379")
 
 # --- API KEY AUTH ---
 async def verify_api_key(x_api_key: str = Header(...)):

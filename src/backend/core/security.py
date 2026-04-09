@@ -21,12 +21,6 @@ else:
 
 # --- API KEY AUTH ---
 async def verify_api_key(x_api_key: str = Header(...)):
-    """Verify API key from X-API-Key header.
-
-    Using custom header instead of Authorization Bearer because
-    AWS Lambda Function URLs with auth_type=NONE reject requests
-    with Authorization headers (treated as AWS SigV4).
-    """
     if not API_KEY:
         raise HTTPException(status_code=503, detail="API key not configured")
     if x_api_key != API_KEY:

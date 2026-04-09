@@ -1,6 +1,7 @@
 fastapi
 uvicorn
 pandas
+mangum
 python-multipart
 slowapi
 httpx

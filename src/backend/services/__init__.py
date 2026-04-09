@@ -1,1 +1,1 @@
-# Services module initialization
+# Services package for ETL operations

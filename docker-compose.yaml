@@ -5,8 +5,8 @@ services:
       - 8000:8000
     volumes:
       - ./src/backend:/app
-    environment:
-      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
     depends_on:
       - redis
   redis:
@@ -26,5 +26,10 @@ services:
     image: grafana/grafana:12.3.0
     ports:
       - "3000:3000"
+    volumes:
+      - grafana-storage:/var/lib/grafana
     depends_on:
       - prometheus
+
+volumes:
+  grafana-storage:

@@ -34,16 +34,14 @@ idna==3.11
     # via
     #   anyio
     #   httpx
-jaraco-context==6.1.1
-    # via -r requirements.txt
 limits==5.8.0
     # via slowapi
+mangum==0.21.0
+    # via -r requirements.txt
 numpy==2.4.2
     # via pandas
 packaging==26.0
-    # via
-    #   limits
-    #   wheel
+    # via limits
 pandas==3.0.1
     # via -r requirements.txt
 prometheus-client==0.24.1
@@ -70,6 +68,7 @@ typing-extensions==4.15.0
     # via
     #   fastapi
     #   limits
+    #   mangum
     #   pydantic
     #   pydantic-core
     #   typing-inspection
@@ -78,8 +77,6 @@ typing-inspection==0.4.2
     #   fastapi
     #   pydantic
 uvicorn==0.41.0
-    # via -r requirements.txt
-wheel==0.46.3
     # via -r requirements.txt
 wrapt==2.1.2
     # via deprecated

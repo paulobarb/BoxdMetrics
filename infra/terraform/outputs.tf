@@ -12,3 +12,8 @@ output "s3_csv_bucket_name" {
   description = "The S3 bucket where raw CSVs are uploaded"
   value       = aws_s3_bucket.csv_uploads.id
 }
+
+output "live_api_url" {
+  description = "The public URL to access your FastAPI backend"
+  value       = aws_lambda_function_url.api_url.function_url
+}

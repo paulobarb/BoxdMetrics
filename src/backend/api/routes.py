@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/upload/")
+@router.post("/upload")
 @limiter.limit("3/minute")
 def upload_files(
     request: Request,

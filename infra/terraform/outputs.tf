@@ -3,10 +3,10 @@ output "ecr_repository_url" {
   value       = aws_ecr_repository.api.repository_url
 }
 
-#output "lambda_function_name" {
-#  description = "The name of the deployed Lambda function"
-#  value       = aws_lambda_function.api.function_name
-#}
+output "lambda_function_name" {
+  description = "The name of the deployed Lambda function"
+  value       = aws_lambda_function.api.function_name
+}
 
 output "s3_csv_bucket_name" {
   description = "The S3 bucket where raw CSVs are uploaded"

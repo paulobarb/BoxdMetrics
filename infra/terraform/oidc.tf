@@ -71,6 +71,15 @@ resource "aws_iam_role_policy" "github_actions_policy" {
           "ecr:PutImage"
         ]
         Resource = aws_ecr_repository.api.arn
+      },
+      {
+        Sid    = "AllowLambdaUpdate"
+        Effect = "Allow"
+        Action = [
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunction"
+        ]
+        Resource = aws_lambda_function.api.arn
       }
     ]
   })

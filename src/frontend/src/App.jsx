@@ -25,7 +25,7 @@ function App() {
       const response = await fetch(import.meta.env.VITE_API_URL, { 
         method: "POST", 
         headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}` 
+          'X-API-Key': import.meta.env.VITE_API_KEY 
         }, 
         body: formData, 
       });

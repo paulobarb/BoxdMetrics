@@ -1,51 +1,47 @@
 # 📦 BoxdMetrics
 
-> A data analytics API built on a DevSecOps foundation — containerized, automatically scanned, and monitored with Prometheus and Grafana.
+> A full-stack data analytics application. Containerized, automatically scanned, deployed serverless, and managed via Infrastructure as Code.
 
 ![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/backend.yml?label=CI%2FCD&style=flat-square)
 ![License](https://img.shields.io/github/license/paulobarb/BoxdMetrics?style=flat-square)
+
+**Live Demo:** [boxd-metrics.vercel.app](https://boxd-metrics.vercel.app)
 
 ---
 
 ## What is this?
 
-BoxdMetrics processes your [Letterboxd](https://letterboxd.com) export data through a FastAPI backend, exposing a REST API with cached analytics. The app itself is simple, the engineering around it is the point.
+BoxdMetrics processes your [Letterboxd](https://letterboxd.com) export data through a Serverless FastAPI backend, returning cached, personalized movie analytics to a React frontend.
 
-This project was built to demonstrate a real DevSecOps workflow: security checks are not an afterthought but gated directly into the CI pipeline, and infrastructure is managed as code.
+This project was built to demonstrate a real DevSecOps workflow: security checks are gated directly into the CI pipeline, compute is optimized for zero-idle cost via AWS Lambda, and infrastructure is strictly managed as code via Terraform.
 
 ---
 
 ## Architecture
 
-```
+```text
 ┌─────────────────────────────────────────────────────────────────────┐
-│                          GitHub Actions                              │
-│   security → build (test + push to GHCR) → scan (trivy) → deploy*  │
+│                          GitHub Actions                             │
+│   security → build (test + push to ECR) → scan (trivy) → deploy     │
 └────────────────────────────┬────────────────────────────────────────┘
                              │
                              ▼
 ┌─────────────────────────────────────────────────────┐
-│              Local / AWS* (Terraform*)               │
-│                                                      │
+│                AWS Cloud (Terraform)                │
+│                                                     │
 │   ┌─────────────┐        ┌──────────────────────┐   │
-│   │   FastAPI    │◄──────│   CSV / S3*          │   │
-│   │  (Docker)    │       └──────────────────────┘   │
+│   │ AWS Lambda  │◄───────│ S3 Bucket / DynamoDB │   │
+│   │ (FastAPI)   │        └──────────────────────┘   │
 │   └──────┬──────┘                                   │
-│          │                                           │
-│   ┌──────▼──────┐                                   │
-│   │    Redis     │                                   │
-│   └─────────────┘                                   │
-└─────────────────────────────────────────────────────┘
-                             │
-                             ▼ /metrics
-┌─────────────────────────────────────────────────────┐
-│                    Monitoring                        │
-│              Prometheus + Grafana                    │
-│         (RED metrics + USE metrics dashboards)       │
+│          ▲                                          │
+└──────────┼──────────────────────────────────────────┘
+           │ HTTPS / Function URL (CORS Locked)
+           │
+┌──────────▼──────────────────────────────────────────┐
+│                      Frontend                       │
+│            React + Vite (Hosted on Vercel)          │
 └─────────────────────────────────────────────────────┘
 ```
-
-> `*` — Planned: AWS ECS Fargate deployment, S3 storage, Terraform provisioning, deploy pipeline job.
 
 ---
 
@@ -53,73 +49,65 @@ This project was built to demonstrate a real DevSecOps workflow: security checks
 
 | Layer | Technology | Purpose |
 | :--- | :--- | :--- |
-| **Containers** | Docker + Compose | Local orchestration & image builds |
+| **Frontend** | React, Vite, CSS | Client-side UI and file processing (Deployed on Vercel) |
+| **Backend** | Python, FastAPI, Mangum | REST API and CSV ETL adapter for Lambda |
+| **Containers** | Docker | Multi-stage optimized builds for AWS ECR |
 | **CI/CD** | GitHub Actions | Automated pipeline (security → build → scan) |
 | **SAST** | Bandit | Static analysis on Python source |
 | **Secret Detection** | Gitleaks | Prevents hardcoded credentials from merging |
 | **Dependency Audit** | pip-audit | CVE scanning on Python dependencies |
 | **Image Scanning** | Trivy | CVE scanning on production Docker image |
-| **Backend** | FastAPI + Pandas | REST API and CSV ETL |
-| **Caching** | Redis | Response caching for analytics endpoints |
-| **Monitoring** | Prometheus + Grafana | Metrics scraping via `/metrics` endpoint |
-| **Cloud (planned)** | AWS ECS Fargate + S3 | Serverless container hosting |
-| **IaC (planned)** | Terraform | Reproducible infrastructure provisioning |
+| **Cloud** | AWS Lambda | Serverless compute (scales to zero) |
+| **IaC** | Terraform | Reproducible infrastructure, IAM roles, and CORS provisioning |
+| **Monitoring** | CloudWatch & Prometheus | Cloud execution logs & Local development metrics |
 
 ---
 
 ## CI/CD Pipeline
 
-Every push to `main` runs 3 jobs in sequence. A failure at any stage blocks the merge.
+Every push to `main` runs jobs in sequence. A failure at any stage blocks the merge.
 
-```
+```text
 job: security
   ├── gitleaks       — secret detection across full git history
   ├── ruff           — Python linting
   ├── bandit         — Python SAST
   └── pip-audit      — dependency CVE audit
 
-job: build            (requires security to pass)
+job: build           (requires security to pass)
   ├── pytest         — automated tests
-  └── docker build   — image built and pushed to GHCR
+  └── docker build   — optimized multi-stage image built for AWS base
 
-job: scan             (requires build to pass)
+job: scan            (requires build to pass)
   └── trivy          — CVE scan on image (fails on HIGH/CRITICAL)
 
-job: deploy           (planned — requires scan to pass)
-  └── push to AWS ECS Fargate
+job: deploy          (requires scan to pass)
+  └── AWS ECR        — pushes verified image to AWS registry
 ```
 
 ---
 
 ## Security Decisions
 
-**Shift-left approach:** security tools run before the Docker build step. A vulnerable dependency or hardcoded secret never makes it into an image.
+**Shift-left approach:** Security tools run before the Docker build step. A vulnerable dependency or hardcoded secret never makes it into an image.
 
-**Trivy configuration:** the pipeline fails on `HIGH` and `CRITICAL` CVEs only. `MEDIUM` and below are logged but non-blocking, a deliberate tradeoff to avoid alert fatigue on base image noise.
+**Trivy configuration:** The pipeline fails on `HIGH` and `CRITICAL` CVEs only. `MEDIUM` and below are logged but non-blocking, a deliberate tradeoff to avoid alert fatigue on base image noise.
 
-**GHCR:** Docker images are pushed to GitHub Container Registry using `GITHUB_TOKEN`, no external registry credentials needed.
-
-**Planned:** AWS credentials injected via GitHub Actions OIDC, no long-lived keys stored as secrets.
+**Strict CORS Architecture:** The AWS Lambda Function URL is protected via Terraform IAM and CORS policies. `allow_origins` is strictly bound to the Vercel production domain and local development, dropping unauthorized requests before Lambda execution to prevent billing attacks.
 
 ---
 
-## Monitoring
+## Monitoring & Telemetry
 
-BoxdMetrics exposes a `/metrics` endpoint in Prometheus format via `prometheus-fastapi-instrumentator`.
+Due to the ephemeral nature of AWS Lambda, production logs and OOM (Out of Memory) tracking are handled natively by **AWS CloudWatch**. 
 
-Two Grafana dashboards are included:
+For local development and load testing, BoxdMetrics exposes a `/metrics` endpoint in Prometheus format via `prometheus-fastapi-instrumentator` for container health monitoring.
 
-**App Health (RED metrics)**
-- Request rate on `/upload/`
-- 95th percentile latency
-- Average processing time
-- Error rate percentage
-
-**Infrastructure (USE metrics)**
-- Memory usage (deriv — detects leaks)
-- CPU usage
-- Container crash detection
-- Open file descriptors
+**Local Infrastructure (USE metrics)**
+* Memory usage (deriv — detects leaks in Pandas processing)
+* CPU usage
+* Container crash detection
+* Open file descriptors
 
 ```yaml
 # prometheus.yml
@@ -133,51 +121,75 @@ scrape_configs:
 
 ## Project Structure
 
-```
+```text
 BoxdMetrics/
 ├── src/
 │   ├── backend/
-│   │   ├── main.py               # FastAPI app + /metrics endpoint
+│   │   ├── main.py               # FastAPI app + Mangum Lambda adapter
 │   │   ├── etl.py                # Pandas CSV processing
 │   │   ├── requirements.txt      # Production dependencies
-│   │   ├── requirements-dev.txt  # CI/dev tools
-│   │   ├── Dockerfile
+│   │   ├── Dockerfile            # Multi-stage AWS Lambda image
 │   │   └── tests/
 │   │       └── test_etl.py       # pytest test suite
-│   └── frontend/                 # React UI
+│   └── frontend/                 # React Vite UI
 ├── infra/
-│   ├── monitoring/
-│   │   └── prometheus.yml
-│   └── terraform/                # planned
+│   └── terraform/                # AWS IaC (Lambda, ECR, IAM, S3)
 ├── .github/
 │   └── workflows/
-│       └── ci.yml                # CI pipeline
-├── docker-compose.yml
+│       └── ci.yml                # CI/CD and Security pipeline
+├── docker-compose.yml            # Local development orchestration
 └── README.md
 ```
 
 ---
 
-## Quick Start (Local)
+## Quick Start (Local Development)
 
-**Prerequisites:** Docker & Docker Compose, your Letterboxd export files
+**Prerequisites:** Docker & Docker Compose, Node.js 18+
 
+### 1. Clone and Setup
 ```bash
 git clone https://github.com/paulobarb/BoxdMetrics.git
 cd BoxdMetrics
-
-# Start the stack
-docker-compose up --build
 ```
 
-- API: `http://localhost:8000`
-- API docs: `http://localhost:8000/docs`
-- Metrics: `http://localhost:8000/metrics`
-- Prometheus: `http://localhost:9090`
-- Grafana: `http://localhost:3000`
+### 2. Environment Setup
+Create the required environment files from the examples:
+```bash
+# Root .env for Docker Compose
+cp .env.example .env
+# Edit .env to set your API_SECRET_KEY
+
+# Frontend env
+cp src/frontend/.env.local.example src/frontend/.env.local
+# Edit src/frontend/.env.local to set VITE_API_KEY
+```
+
+### 3. Start Backend (Docker)
+```bash
+# Start all services (backend, redis, prometheus, grafana)
+docker-compose up -d
+
+# View logs
+docker-compose logs -f backend
+```
+* API: `http://localhost:8000`
+* API docs: `http://localhost:8000/docs`
+* Prometheus: `http://localhost:9090`
+* Grafana: `http://localhost:3000`
+
+### 4. Start Frontend (Dev Server)
+```bash
+cd src/frontend
+npm install
+npm run dev
+```
+* UI: `http://localhost:5173`
+
+The frontend will proxy API requests to your local backend automatically.
 
 ---
 
 ## Data Privacy
 
-Personal Letterboxd CSV files are explicitly excluded via `.gitignore` and never committed to the repository.
+Personal Letterboxd CSV files are explicitly excluded via `.gitignore` and never committed to the repository. The production AWS Lambda environment processes CSVs in RAM during execution and natively purges the data upon container shutdown.

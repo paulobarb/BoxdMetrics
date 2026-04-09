@@ -10,6 +10,8 @@ RUN pip install --no-cache-dir -r requirements-lock.txt -t /build
 # Lambda Image
 FROM public.ecr.aws/lambda/python:3.12
 
+RUN microdnf update -y && microdnf clean all
+
 COPY --from=builder /build ${LAMBDA_TASK_ROOT}/backend
 
 COPY . ${LAMBDA_TASK_ROOT}/backend/

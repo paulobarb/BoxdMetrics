@@ -4,14 +4,14 @@ from fastapi import APIRouter, File, HTTPException, Request, Security, UploadFil
 import pandas as pd
 import logging
 
-from backend.core.security import verify_api_key, limiter
-from backend.services import etl_letterboxd
+from core.security import verify_api_key, limiter
+from services import etl_letterboxd
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
 
-@router.post("/upload/")
+@router.post("/upload")
 @limiter.limit("3/minute")
 def upload_files(
     request: Request,

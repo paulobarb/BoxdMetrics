@@ -26,6 +26,7 @@ src/backend/data/
 .terraform.lock.hcl
 .terraform.tfstate.lock.info
 secrets.auto.tfvars
+terraform.tfvars
 
 # Vercel
 .vercel

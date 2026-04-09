@@ -1,4 +1,4 @@
-name: CI Pipeline
+name: CI/CD Backend Pipeline
 
 on:
     push:
@@ -126,10 +126,15 @@ jobs:
 
             docker tag boxdmetrics-api-dev:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
             docker push $REGISTRY/$REPOSITORY:latest
-        - name: Force ECS Update
+        - name: Update AWS Lambda Function
           env:
-            CLUSTER: boxdmetrics-cluster
-            SERVICE: boxdmetrics-api-service-dev
-          run: aws ecs update-service --cluster $CLUSTER --service $SERVICE --force-new-deployment
+            REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+            REPOSITORY: boxdmetrics-api-dev
+            IMAGE_TAG: ${{ github.sha }}
+            FUNCTION_NAME: boxdmetrics-api-dev 
+          run: |
+            aws lambda update-function-code \
+              --function-name $FUNCTION_NAME \
+              --image-uri $REGISTRY/$REPOSITORY:$IMAGE_TAG
             
         

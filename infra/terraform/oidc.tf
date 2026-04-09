@@ -73,13 +73,13 @@ resource "aws_iam_role_policy" "github_actions_policy" {
         Resource = aws_ecr_repository.api.arn
       },
       {
-        Sid    = "AllowECSRestart"
+        Sid    = "AllowLambdaUpdate"
         Effect = "Allow"
         Action = [
-          "ecs:UpdateService",
-          "ecs:DescribeServices"
+          "lambda:UpdateFunctionCode",
+          "lambda:GetFunction"
         ]
-        Resource = aws_ecs_service.api.id
+        Resource = aws_lambda_function.api.arn
       }
     ]
   })

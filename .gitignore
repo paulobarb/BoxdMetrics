@@ -1,7 +1,8 @@
-# Ignore Secrets
+# Ignore Secrets - root and all subdirectories
 .env
-.env.local
-.env.development
+.env.*
+**/.env
+**/.env.*
 *.local
 
 # Ignore Python Garbage

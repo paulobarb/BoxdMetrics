@@ -4,7 +4,7 @@ WORKDIR /app
 
 RUN useradd -m appuser
 
-COPY requirements.txt .
+COPY requirements-lock.txt .
 RUN pip install --no-cache-dir -r requirements-lock.txt
 
 COPY . .

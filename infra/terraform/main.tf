@@ -98,8 +98,11 @@ resource "aws_lambda_function_url" "api_url" {
 
   cors {
     allow_credentials = true
-    allow_origins     = ["*"] # We'll restrict this to your Vercel URL later
-    allow_methods     = ["*"]
+    allow_origins     = [
+        "http://localhost:5173",
+        "https://boxd-metrics.vercel.app"
+    ]
+    allow_methods     = ["POST", "OPTIONS"]
     allow_headers     = ["*"]
     expose_headers    = ["keep-alive", "date"]
     max_age           = 86400

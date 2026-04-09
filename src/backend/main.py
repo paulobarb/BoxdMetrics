@@ -10,9 +10,9 @@ from prometheus_fastapi_instrumentator import Instrumentator
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
-from backend.api.routes import router as upload_router
-from backend.core.config import DUCKDNS_URL
-from backend.core.security import limiter
+from api.routes import router as upload_router
+from core.config import DUCKDNS_URL
+from core.security import limiter
 
 logger = logging.getLogger(__name__)
 

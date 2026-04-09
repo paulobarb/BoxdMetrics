@@ -17,34 +17,34 @@ from core.security import limiter
 logger = logging.getLogger(__name__)
 
 # --- LIFESPAN ---
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    token = os.getenv("DUCKDNS_TOKEN")
-    domain = os.getenv("DUCKDNS_DOMAIN")
+#@asynccontextmanager
+#async def lifespan(app: FastAPI):
+#    token = os.getenv("DUCKDNS_TOKEN")
+#    domain = os.getenv("DUCKDNS_DOMAIN")
 
-    if token and domain:
-        try:
-            url = f"{DUCKDNS_URL}?domains={domain}&token={token}&ip="
+#    if token and domain:
+#        try:
+#            url = f"{DUCKDNS_URL}?domains={domain}&token={token}&ip="
 
-            if not url.startswith("https://"):
-                logger.error(f"Insecure URL scheme: {url}")
-                raise ValueError("Only HTTPS URLs allowed for DuckDNS")
+#           if not url.startswith("https://"):
+#                logger.error(f"Insecure URL scheme: {url}")
+#                raise ValueError("Only HTTPS URLs allowed for DuckDNS")
 
-            async with httpx.AsyncClient() as client:
-                response = await client.get(url, timeout=10.0)
-                result = response.text.strip()
+#            async with httpx.AsyncClient() as client:
+#                response = await client.get(url, timeout=10.0)
+#                result = response.text.strip()
 
-            if result == "OK":
-                logger.info(f"DuckDNS updated for {domain}")
-            else:
-                logger.error(f"DuckDNS update failed: {result}")
-        except Exception as e:
-            logger.error(f"DuckDNS error: {e}")
-    yield
+#            if result == "OK":
+#                logger.info(f"DuckDNS updated for {domain}")
+#            else:
+#                logger.error(f"DuckDNS update failed: {result}")
+#        except Exception as e:
+#            logger.error(f"DuckDNS error: {e}")
+#    yield
 
 app = FastAPI(
     title="BoxdMetrics API", 
-    lifespan=lifespan,
+    #lifespan=lifespan,
     docs_url=None if os.getenv("ENVIRONMENT") == "production" else "/docs",
     redoc_url=None if os.getenv("ENVIRONMENT") == "production" else "/redoc"
 )

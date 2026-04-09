@@ -2,7 +2,7 @@ from fastapi import HTTPException, Request, Security
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from slowapi import Limiter
 
-from backend.core.config import API_KEY
+from core.config import API_KEY
 
 # --- RATE LIMITER ---
 def get_real_ip(request: Request):

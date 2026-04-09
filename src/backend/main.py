@@ -1,9 +1,9 @@
 import os
-import httpx
+#import httpx
 import logging
 
 from mangum import Mangum
-from contextlib import asynccontextmanager
+#from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator

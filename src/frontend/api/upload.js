@@ -1,3 +1,4 @@
+/*
 export default async function handler(req, res) {
   const backendIp = process.env.AWS_BACKEND_IP;
 
@@ -57,3 +58,4 @@ export const config = {
     bodyParser: false,
   },
 };
+*/

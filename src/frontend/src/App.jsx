@@ -22,10 +22,12 @@ function App() {
 
     try {      
 
-
-      const response = await fetch("/api/upload/", {
-        method: "POST",
-        body: formData,
+      const response = await fetch(import.meta.env.VITE_API_URL, { 
+        method: "POST", 
+        headers: {
+          'Authorization': `Bearer ${import.meta.env.VITE_API_KEY}` 
+        }, 
+        body: formData, 
       });
       
       const data = await response.json();
@@ -49,6 +51,8 @@ function App() {
         } else {
           setError(errorMsg);
         }
+
+        return;
       }
 
       console.log("Your data:", data);

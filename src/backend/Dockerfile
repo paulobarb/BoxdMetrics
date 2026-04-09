@@ -1,19 +1,16 @@
-# Builder
-FROM python:3.12-slim AS builder
+FROM python:3.12-slim
 
-WORKDIR /build
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    rm -rf /var/lib/apt/lists/*
+    
+WORKDIR /app
+
+RUN useradd -m appuser
 
 COPY requirements-lock.txt .
+RUN pip install --no-cache-dir -r requirements-lock.txt
 
-RUN pip install --no-cache-dir -r requirements-lock.txt -t /build
+COPY . .
 
-# Lambda Image
-FROM public.ecr.aws/lambda/python:3.12
-
-COPY --from=builder /build ${LAMBDA_TASK_ROOT}/backend
-
-COPY . ${LAMBDA_TASK_ROOT}/backend/
-
-ENV PYTHONPATH="${LAMBDA_TASK_ROOT}/backend"
-
-CMD ["main.handler"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

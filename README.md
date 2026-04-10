@@ -1,179 +1,274 @@
-# 📦 BoxdMetrics
+# BoxdMetrics
 
-> A full-stack data analytics application. Containerized, automatically scanned, deployed serverless, and managed via Infrastructure as Code.
+> Production-grade serverless analytics platform with automated pipeline. Processes Letterboxd movie data through a CI/CD pipeline to AWS Lambda, delivering sub-second personalized insights.
 
-![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/backend.yml?label=CI%2FCD&style=flat-square)
-![License](https://img.shields.io/github/license/paulobarb/BoxdMetrics?style=flat-square)
+[![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/backend.yml?label=CI%2FCD&style=flat-square)](https://github.com/paulobarb/BoxdMetrics/actions)
+[![Infrastructure](https://img.shields.io/badge/Terraform-AWS%20Lambda-orange?style=flat-square&logo=terraform)](infra/terraform/)
+[![Security](https://img.shields.io/badge/security-SLSA%20L1-green?style=flat-square)](.github/workflows/backend.yml)
+[![License](https://img.shields.io/github/license/paulobarb/BoxdMetrics?style=flat-square)](LICENSE)
 
-**Live Demo:** [boxd-metrics.vercel.app](https://boxd-metrics.vercel.app)
-
----
-
-## What is this?
-
-BoxdMetrics processes your [Letterboxd](https://letterboxd.com) export data through a Serverless FastAPI backend, returning cached, personalized movie analytics to a React frontend.
-
-This project was built to demonstrate a real DevSecOps workflow: security checks are gated directly into the CI pipeline, compute is optimized for zero-idle cost via AWS Lambda, and infrastructure is strictly managed as code via Terraform.
+**Live Demo:** [boxd-metrics.vercel.app](https://boxd-metrics.vercel.app)  
 
 ---
 
-## Architecture
+## Executive Summary
 
-```text
-┌─────────────────────────────────────────────────────────────────────┐
-│                          GitHub Actions                             │
-│   security → build (test + push to ECR) → scan (trivy) → deploy     │
-└────────────────────────────┬────────────────────────────────────────┘
-                             │
-                             ▼
-┌─────────────────────────────────────────────────────┐
-│                AWS Cloud (Terraform)                │
-│                                                     │
-│   ┌─────────────┐        ┌──────────────────────┐   │
-│   │ AWS Lambda  │◄───────│ S3 Bucket / DynamoDB │   │
-│   │ (FastAPI)   │        └──────────────────────┘   │
-│   └──────┬──────┘                                   │
-│          ▲                                          │
-└──────────┼──────────────────────────────────────────┘
-           │ HTTPS / Function URL (CORS Locked)
-           │
-┌──────────▼──────────────────────────────────────────┐
-│                      Frontend                       │
-│            React + Vite (Hosted on Vercel)          │
-└─────────────────────────────────────────────────────┘
+BoxdMetrics workflow: developer commits code → automated security pipeline validates → infrastructure deploys as code. The architecture prioritizes **security-by-default**, **cost-efficiency** (scales to zero), and **zero-downtime deployments**.
+
+Key achievements:
+- **Security-gated CI/CD:** 5-layer security checks prevent vulnerable code from reaching production
+- **Serverless-first:** AWS Lambda architecture costs ~$0.55/month vs $20+/month for always-on compute
+- **Infrastructure as Code:** Complete AWS environment reproducible via Terraform
+- **Zero-trust security:** CORS-locked origins, API key auth, least-privilege IAM
+
+---
+
+## Architecture Overview
+
+```
+┌────────────────────────────────────────────────────────────────────────────┐
+│                           GitHub Actions (CI/CD)                           │
+│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
+│  │  Security   │───▶│    Build    │───▶│    Scan     │───▶│   Deploy    │  │
+│  │  Layer 1-5  │    │   + Test    │    │    Trivy    │    │  AWS ECR    │  │
+│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘  │
+└────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              AWS Cloud (Terraform)                          │
+│                                                                             │
+│   ┌──────────────────┐         ┌─────────────────────────────────────┐      │
+│   │   ECR Registry   │         │         Lambda Function             │      │
+│   │   ┌──────────┐   │         │   ┌─────────────────────────────┐   │      │
+│   │   │ :latest  │───┼─────────┼──▶│  FastAPI + Mangum Adapter   │   │      │
+│   │   └──────────┘   │         │   │  • 30s timeout              │   │      │
+│   └──────────────────┘         │   │  • 512MB RAM                │   │      │
+│                                │   │  • Python 3.12              │   │      │
+│                                │   └─────────────┬───────────────┘   │      │
+│                                │                 │                   │      │
+│                                │   ┌─────────────▼────────────┐      │      │
+│    ┌──────────────────┐        │   │   Function URL (CORS)    │      │      │
+│    │   Data Layer     │        │   │  ─────────────────────── │      │      │
+│    │  ┌────────────┐  │        │   │  Origins: Vercel-locked  │      │      │
+│    │  │ S3 (CSV)   │  │        │   │  Auth: App-level         │      │      │
+│    │  │ DynamoDB   │  │        │   └──────────────────────────┘      │      │
+│    │  └────────────┘  │        └─────────────────────────────────────┘      │
+│    └──────────────────┘                                                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+                                       │
+                                       ▼ HTTPS
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                              Vercel Edge (Frontend)                         │
+│                                   React + Vite                              │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Tech Stack
+## Tech Stack & Security Layers
 
-| Layer | Technology | Purpose |
-| :--- | :--- | :--- |
-| **Frontend** | React, Vite, CSS | Client-side UI and file processing (Deployed on Vercel) |
-| **Backend** | Python, FastAPI, Mangum | REST API and CSV ETL adapter for Lambda |
-| **Containers** | Docker | Multi-stage optimized builds for AWS ECR |
-| **CI/CD** | GitHub Actions | Automated pipeline (security → build → scan) |
-| **SAST** | Bandit | Static analysis on Python source |
-| **Secret Detection** | Gitleaks | Prevents hardcoded credentials from merging |
-| **Dependency Audit** | pip-audit | CVE scanning on Python dependencies |
-| **Image Scanning** | Trivy | CVE scanning on production Docker image |
-| **Cloud** | AWS Lambda | Serverless compute (scales to zero) |
-| **IaC** | Terraform | Reproducible infrastructure, IAM roles, and CORS provisioning |
-| **Monitoring** | CloudWatch & Prometheus | Cloud execution logs & Local development metrics |
-
+| Category | Technology | Security Purpose |
+|----------|-----------|------------------|
+| **Frontend** | React, Vite | CSP headers, build-time env injection |
+| **Backend** | FastAPI, Python | Input validation, type safety, rate limiting |
+| **Serverless** | AWS Lambda (Mangum) | No persistent attack surface, IAM-isolated |
+| **Container** | Docker multi-stage | Minimal attack surface, distroless where possible |
+| **Registry** | Amazon ECR | Image scanning on push, immutable tags |
+| **CI/CD** | GitHub Actions | OIDC authentication (no long-lived secrets) |
+| **SAST** | Bandit, Ruff | Python vulnerability detection |
+| **Secrets** | Gitleaks | Pre-commit secret detection |
+| **Dependencies** | pip-audit | CVE scanning for supply chain |
+| **Images** | Trivy | OS + library vulnerability scanning |
+| **IaC** | Terraform | Version-controlled infrastructure, plan reviews |
+| **Auth** | AWS IAM + OIDC | Federated identity, no static credentials |
+| **Monitoring** | CloudWatch + Prometheus | Observability, alerting |
 
 ---
 
-## CI/CD Pipeline
+## Infrastructure as Code
 
-Every push to `main` runs jobs in sequence. A failure at any stage blocks the merge.
+Two documented architectural iterations tracked in the `infra/` directory:
 
-```text
-job: security
-  ├── gitleaks       — secret detection across full git history
-  ├── ruff           — Python linting
-  ├── bandit         — Python SAST
-  └── pip-audit      — dependency CVE audit
+### [Current Architecture: Serverless Lambda (V2)](infra/terraform/)
 
-job: build           (requires security to pass)
-  ├── pytest         — automated tests
-  └── docker build   — optimized multi-stage image built for AWS base
+```hcl
+# resources: Lambda, ECR, S3, DynamoDB, IAM, CloudWatch
+# cost: ~$0.55/month at current usage
+# cold start: ~2-4 seconds
+```
 
-job: scan            (requires build to pass)
-  └── trivy          — CVE scan on image (fails on HIGH/CRITICAL)
+**Optimizations:**
+- Function URL CORS strictly bound to Vercel origins
+- Lambda memory tuned at 512MB (price/performance sweet spot)
+- CloudWatch Logs 7-day retention (cost vs debugging tradeoff)
 
-job: deploy          (requires scan to pass)
-  └── AWS ECR        — pushes verified image to AWS registry
+### [Legacy Architecture: ECS Fargate (V1)](infra/terraform-legacy/)
+
+```hcl
+# resources: ECS Cluster, Fargate Tasks, VPC
+# cost: ~$20+/month (always-on)
+# use case: Sustained load, custom networking requirements
+```
+
+Documented for reference showing evolution toward serverless-first design.
+
+---
+
+## Local Development
+
+**Prerequisites:** Docker, Docker Compose, Node.js 22+
+
+```bash
+# Clone repository
+git clone https://github.com/paulobarb/BoxdMetrics.git
+cd BoxdMetrics
+
+# Start frontend + backend + monitoring stack
+docker-compose up --build
+```
+- RUN: http://localhost:5174
+
+**Local Services:**
+| Service | URL | Purpose |
+|---------|-----|---------|
+| API | http://localhost:8000 | FastAPI backend |
+| API Docs | http://localhost:8000/docs | OpenAPI/Swagger UI |
+| Prometheus | http://localhost:9090 | Metrics scraping |
+| Grafana | http://localhost:3000 | Visualization (admin/admin) |
+
+---
+
+## Monitoring & Observability
+
+### Production (AWS CloudWatch)
+
+| Metric | Source | Alert Threshold (to-do)|
+|--------|--------|-----------------|
+| Invocations | Lambda | N/A (usage tracking) |
+| Duration | Lambda | > 5s (p99 latency / Cold Start monitoring) |
+| Errors | Lambda | > 1% error rate |
+
+### Local Development (Prometheus + Grafana)
+
+Two custom dashboards for development debugging:
+
+**[AppHealth.json](infra/monitoring/grafana/AppHealth.json)** - RED Metrics
+- Request rate, latency (p95), error rate
+- Tracks what end-users experience
+
+**[Infrastructure.json](infra/monitoring/grafana/Infrastructure.json)** - USE Metrics
+- CPU, memory, container restarts
+- Detects resource exhaustion and memory leaks
+
+See [infra/monitoring/README.md](infra/monitoring/) for detailed dashboard documentation.
+
+---
+
+## Security Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  THREAT MODEL                                                               │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  Threat: Unauthorized API Access                                            │
+│  Mitigation: X-API-Key header validation (FastAPI dependency)               │
+│                                                                             │
+│  Threat: Credential Leakage (Git commit)                                    │
+│  Mitigation: Zero-config 'dummy' keys for local dev + GitHub Secrets        │
+│                                                                             │
+│  Threat: Dependency Supply Chain Attack                                     │
+│  Mitigation: pip-audit CVE scanning + lock files                            │
+│                                                                             │
+│  Threat: Container Escape                                                   │
+│  Mitigation: Distroless images + Trivy scanning + minimal privileges        │
+│                                                                             │
+│  Threat: DDoS / Billing Attack                                              │
+│  Mitigation: CORS origin blocking + rate limiting (slowapi + Redis)         │
+│                                                                             │
+│  Threat: Injection (CSV parsing)                                            │
+│  Mitigation: Pandas strict column validation, size limits (2MB max)         │
+│                                                                             │
+│  Threat: IAM Privilege Escalation                                           │
+│  Mitigation: Least-privilege roles, OIDC conditions (repo/branch match)     │
+└─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Security Decisions
+## Testing Strategy
 
-**Shift-left approach:** Security tools run before the Docker build step. A vulnerable dependency or hardcoded secret never makes it into an image.
+```bash
+# Unit tests (pytest)
+cd src/backend
+pytest tests/ -v
 
-**Trivy configuration:** The pipeline fails on `HIGH` and `CRITICAL` CVEs only. `MEDIUM` and below are logged but non-blocking, a deliberate tradeoff to avoid alert fatigue on base image noise.
+# Security scan (Bandit)
+bandit -r . -x tests/
 
-**Strict CORS Architecture:** The AWS Lambda Function URL is protected via Terraform IAM and CORS policies. `allow_origins` is strictly bound to the Vercel production domain and local development, dropping unauthorized requests before Lambda execution to prevent billing attacks.
+# Dependency audit
+pip-audit -r requirements.txt
 
----
-
-## Monitoring & Telemetry
-
-Due to the ephemeral nature of AWS Lambda, production logs and OOM (Out of Memory) tracking are handled natively by **AWS CloudWatch**. 
-
-For local development and load testing, BoxdMetrics exposes a `/metrics` endpoint in Prometheus format via `prometheus-fastapi-instrumentator` for container health monitoring.
-
-**Local Infrastructure (USE metrics)**
-* Memory usage (deriv — detects leaks in Pandas processing)
-* CPU usage
-* Container crash detection
-* Open file descriptors
-
-```yaml
-# prometheus.yml
-scrape_configs:
-  - job_name: 'boxdmetrics-api'
-    static_configs:
-      - targets: ['backend:8000']
+# Local security check
+docker run --rm -v $(pwd):/code aquasec/trivy fs /code
 ```
 
 ---
 
 ## Project Structure
 
-```text
+```
 BoxdMetrics/
 ├── src/
 │   ├── backend/
-│   │   ├── main.py               # FastAPI app + Mangum Lambda adapter
-│   │   ├── etl.py                # Pandas CSV processing
-│   │   ├── requirements.txt      # Production dependencies
-│   │   ├── Dockerfile            # Multi-stage AWS Lambda image
+│   │   ├── api/routes.py          # FastAPI endpoints
+│   │   ├── core/
+│   │   │   ├── security.py         # Auth, rate limiting
+│   │   │   └── config.py           # Environment config
+│   │   ├── services/
+│   │   │   └── etl_letterboxd.py   # CSV processing logic
+│   │   ├── main.py                 # Lambda handler entry
+│   │   ├── Dockerfile              # Local development
+│   │   ├── Dockerfile.aws          # Production Lambda image
 │   │   └── tests/
-│   │       └── test_etl.py       # pytest test suite
-│   └── frontend/                 # React Vite UI
+│   │       ├── test_routes.py      # API integration tests
+│   │       └── test_etl.py         # ETL unit tests
+│   └── frontend/
+│       ├── src/App.jsx             # React components
+│       └── Dockerfile
 ├── infra/
-│   └── terraform/                # AWS IaC (Lambda, ECR, IAM, S3)
-├── .github/
-│   └── workflows/
-│       └── ci.yml                # CI/CD and Security pipeline
-├── docker-compose.yml            # Local development orchestration
+│   ├── terraform/                  # Current Lambda infrastructure
+│   ├── terraform-legacy/           # Documented ECS evolution
+│   └── monitoring/                 
+│       ├── prometheus.yml          # Scrape configurations
+│       └── grafana/                # Provisioning & JSON Dashboards
+├── .github/workflows/
+│   └── backend.yml                 # CI/CD pipeline
+├── docker-compose.yaml             # Local orchestration
 └── README.md
 ```
 
 ---
 
-## Quick Start (Local Development)
+## Performance Characteristics
 
-**Prerequisites:** Docker & Docker Compose, Node.js, your Letterboxd export files.
-
-### 1. Backend API
-```bash
-git clone [https://github.com/paulobarb/BoxdMetrics.git](https://github.com/paulobarb/BoxdMetrics.git)
-cd BoxdMetrics
-
-# Start the local backend simulation
-docker-compose up --build
-```
-* API: `http://localhost:8000`
-* API docs: `http://localhost:8000/docs`
-
-### 2. Frontend UI
-```bash
-cd src/frontend
-npm install
-
-# Create local environment variable
-echo "VITE_API_URL=http://localhost:8000/api/upload/" > .env
-
-# Start React dev server
-npm run dev
-```
-* UI: `http://localhost:5173`
+| Metric | Value | Notes |
+|--------|-------|-------|
+| Cold Start | 1-2s | Python + Pandas initialization |
+| Warm Response | <200ms | Cached Lambda execution |
+| Max File Size | 2MB | CSV upload limit |
+| Rate Limit | 3 req/min per IP | Configurable via slowapi |
+| Monthly Cost | ~$0.55 | Lambda free tier covers usage |
 
 ---
 
-## Data Privacy
+## License
 
-Personal Letterboxd CSV files are explicitly excluded via `.gitignore` and never committed to the repository. The production AWS Lambda environment processes CSVs in RAM during execution and natively purges the data upon container shutdown.
+MIT - See [LICENSE](LICENSE)
+
+---
+
+## Contact
+
+Built by [Paulo Barbosa](https://github.com/paulobarb)

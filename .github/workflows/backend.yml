@@ -19,6 +19,10 @@ on:
 permissions:
   contents: read      
 
+env:
+  ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'dev' }}
+  AWS_REGION: eu-north-1
+
 jobs:
     security:
       runs-on: ubuntu-latest
@@ -73,7 +77,7 @@ jobs:
             python-version: '3.11'
             cache: 'pip'
 
-        - name: Install dependencies with pip
+        - name: Install dependencies
           run: |
                 python -m pip install --upgrade pip
                 pip install -r ./src/backend/requirements.txt
@@ -88,53 +92,51 @@ jobs:
           uses: aws-actions/configure-aws-credentials@v6
           with:
             audience: sts.amazonaws.com
-            aws-region: eu-north-1
+            aws-region: ${{ env.AWS_REGION }}
             role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/GitHub_Actions_Role
 
         - name: Login to Amazon ECR
           id: login-ecr
           uses: aws-actions/amazon-ecr-login@v2
 
-        - name: Build docker image to Amazon ECR
+        - name: Build and Scan Image
           env:
             REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            REPOSITORY: boxdmetrics-api-dev
+            # DYNAMIC: Uses production or dev based on branch
+            REPOSITORY: boxdmetrics-api-${{ env.ENV_NAME }}
             IMAGE_TAG: ${{ github.sha }}
           run: |
             cd src/backend
-
+            # Build using the dynamic repository name
             docker build -f Dockerfile.aws -t $REPOSITORY:$IMAGE_TAG .
-        
+
         - name: Run Trivy vulnerability scanner
           uses: aquasecurity/trivy-action@0.35.0
           with:
-            image-ref: 'boxdmetrics-api-dev:${{ github.sha }}'
+            # DYNAMIC: Now scans the correct image for the environment
+            image-ref: 'boxdmetrics-api-${{ env.ENV_NAME }}:${{ github.sha }}'
             format: 'table'
             exit-code: '1'
             ignore-unfixed: true
             vuln-type: 'os,library'
             severity: 'CRITICAL,HIGH'
 
-        - name: Push docker image to Amazon ECR
+        - name: Push to ECR and Update Lambda
+          # Only push and update if we are NOT in a Pull Request
+          if: github.event_name == 'push'
           env:
             REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            REPOSITORY: boxdmetrics-api-dev
+            REPOSITORY: boxdmetrics-api-${{ env.ENV_NAME }}
             IMAGE_TAG: ${{ github.sha }}
           run: |
-            docker tag boxdmetrics-api-dev:$IMAGE_TAG $REGISTRY/$REPOSITORY:$IMAGE_TAG
+            docker tag $REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:$IMAGE_TAG
+            docker tag $REPOSITORY:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
             docker push $REGISTRY/$REPOSITORY:$IMAGE_TAG
-
-            docker tag boxdmetrics-api-dev:$IMAGE_TAG $REGISTRY/$REPOSITORY:latest
             docker push $REGISTRY/$REPOSITORY:latest
-        - name: Update AWS Lambda Function
-          env:
-            REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-            REPOSITORY: boxdmetrics-api-dev
-            IMAGE_TAG: ${{ github.sha }}
-            FUNCTION_NAME: boxdmetrics-api-dev 
-          run: |
+            
+            # Final Lambda update
             aws lambda update-function-code \
-              --function-name $FUNCTION_NAME \
+              --function-name $REPOSITORY \
               --image-uri $REGISTRY/$REPOSITORY:$IMAGE_TAG
             
         

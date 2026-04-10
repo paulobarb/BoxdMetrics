@@ -20,7 +20,7 @@ permissions:
   contents: read      
 
 env:
-  ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'production' || 'dev' }}
+  ENV_NAME: ${{ github.ref == 'refs/heads/main' && 'prod' || 'dev' }}
   AWS_REGION: eu-north-1
 
 jobs:

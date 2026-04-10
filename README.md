@@ -29,7 +29,7 @@ Key achievements:
 ┌────────────────────────────────────────────────────────────────────────────┐
 │                           GitHub Actions (CI/CD)                           │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
-│  │  Security   │───▶│    Build    │───▶│    Scan     │───▶│   Deploy    │  │
+│  │  Security   │───>│    Build    │───>│    Scan     │───>│   Deploy    │  │
 │  │  Layer 1-5  │    │   + Test    │    │    Trivy    │    │  AWS ECR    │  │
 │  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘  │
 └────────────────────────────────────────────────────────────────────────────┘
@@ -41,7 +41,7 @@ Key achievements:
 │   ┌──────────────────┐         ┌─────────────────────────────────────┐      │
 │   │   ECR Registry   │         │         Lambda Function             │      │
 │   │   ┌──────────┐   │         │   ┌─────────────────────────────┐   │      │
-│   │   │ :latest  │───┼─────────┼──▶│  FastAPI + Mangum Adapter   │   │      │
+│   │   │ :latest  │───┼─────────┼──>│  FastAPI + Mangum Adapter   │   │      │
 │   │   └──────────┘   │         │   │  • 30s timeout              │   │      │
 │   └──────────────────┘         │   │  • 512MB RAM                │   │      │
 │                                │   │  • Python 3.12              │   │      │
@@ -125,7 +125,7 @@ git clone https://github.com/paulobarb/BoxdMetrics.git
 cd BoxdMetrics
 
 # Start frontend + backend + monitoring stack
-docker-compose up --build
+docker-compose up --build -d
 ```
 - RUN: http://localhost:5174
 

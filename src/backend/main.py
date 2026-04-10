@@ -5,6 +5,8 @@ from mangum import Mangum
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from prometheus_fastapi_instrumentator import Instrumentator
+from prometheus_client import REGISTRY, push_to_gateway
+from prometheus_client.exposition import basic_auth_handler
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
@@ -32,23 +34,30 @@ if is_local_dev or not is_aws:
         allow_headers=["*"],
     )
 
-instrumentator = Instrumentator()
-instrumentator.instrument(app).expose(app)
+instrumentator = Instrumentator().instrument(app)
+
+def grafana_auth_handler(url, method, timeout, headers, data):
+    username = os.getenv("GRAFANA_USER_ID")
+    password = os.getenv("GRAFANA_TOKEN")
+    return basic_auth_handler(url, method, timeout, headers, data, username, password)
 
 # Send the metrics to Grafana Cloud before the Lambda function dies
 @app.middleware("http")
 async def push_metrics_after_request(request: Request, call_next):
     response = await call_next(request)
+
+    push_url = os.getenv("GRAFANA_PUSH_URL")
     
-    if is_aws and os.getenv("ENVIRONMENT") == "production":
+    if is_aws and os.getenv("ENVIRONMENT") == "production" and push_url:
         try:
-            instrumentator.push_to_gateway(
-                url=os.getenv("GRAFANA_PUSH_URL"), 
+            push_to_gateway(
+                push_url,
                 job="boxdmetrics-api",
-                auth=(os.getenv("GRAFANA_USER_ID"), os.getenv("GRAFANA_TOKEN"))
+                registry=REGISTRY,
+                handler=grafana_auth_handler
             )
         except Exception as e:
-            logger.error(f"Failed to push metrics to Grafana Cloud: {e}")
+            logger.error(f"Grafana Push Failed: {e}")
             
     return response
 

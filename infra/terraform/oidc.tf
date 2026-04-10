@@ -1,15 +1,17 @@
 # =======================================
-# == GitHub OIDC Identity Provider     ==
+# == GitHub OIDC Identity Provider ==
 # =======================================
 
 data "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
 }
 
-# ===================================
-# == GitHub Actions IAM Role       ==
-# ===================================
+# Get current AWS account ID for ARN construction
+data "aws_caller_identity" "current" {}
 
+# ===================================
+# == GitHub Actions IAM Role ==
+# ===================================
 resource "aws_iam_role" "github_actions" {
   name = "GitHub_Actions_Role"
 
@@ -38,7 +40,6 @@ resource "aws_iam_role" "github_actions" {
 # ==========================================
 # == Deployment Permissions Policy ==
 # ==========================================
-
 resource "aws_iam_role_policy" "github_actions_policy" {
   name = "github-actions-deploy-policy"
   role = aws_iam_role.github_actions.id
@@ -47,7 +48,7 @@ resource "aws_iam_role_policy" "github_actions_policy" {
     Version = "2012-10-17"
     Statement = [
       {
-        Sid    = "AllowECRAuth"
+        Sid = "AllowECRAuth"
         Effect = "Allow"
         Action = [
           "ecr:GetAuthorizationToken"
@@ -55,7 +56,7 @@ resource "aws_iam_role_policy" "github_actions_policy" {
         Resource = "*"
       },
       {
-        Sid    = "AllowECRUpload"
+        Sid = "AllowECRUploadScoped"
         Effect = "Allow"
         Action = [
           "ecr:BatchCheckLayerAvailability",
@@ -68,12 +69,13 @@ resource "aws_iam_role_policy" "github_actions_policy" {
           "ecr:InitiateLayerUpload",
           "ecr:UploadLayerPart",
           "ecr:CompleteLayerUpload",
-          "ecr:PutImage"
+          "ecr:PutImage",
+          "ecr:CreateRepository"
         ]
-        Resource = aws_ecr_repository.api.arn
+        Resource = "arn:aws:ecr:${var.aws_region}:${data.aws_caller_identity.current.account_id}:repository/${var.project_name}-api-*"
       },
       {
-        Sid    = "AllowLambdaUpdate"
+        Sid = "AllowLambdaUpdate"
         Effect = "Allow"
         Action = [
           "lambda:UpdateFunctionCode",

@@ -24,7 +24,7 @@ Two observability paths for two different needs:
 │                                                                         │
 │      ┌──────────┐     ┌──────────────┐     ┌──────────────┐             │
 │      │          │     │              │     │              │             │
-│      │ Backend  │────▶│  Prometheus  │────▶│   Grafana    │             │
+│      │ Backend  │────>│  Prometheus  │────>│   Grafana    │             │
 │      │  :8000   │     │   :9090      │     │   :3000      │             │
 │      │          │     │              │     │              │             │
 │      └────┬─────┘     └──────────────┘     └──────────────┘             │
@@ -178,11 +178,11 @@ Lambda automatically sends metrics to CloudWatch. No local Prometheus/Grafana ne
 ```
 Lambda Execution
 │
-├─ Invocation Count ──▶ AWS/Lambda: Invocations
-├─ Duration ──────────▶ AWS/Lambda: Duration
-├─ Errors ──────────▶ AWS/Lambda: Errors
-├─ Memory Used ─────▶ CloudWatch Logs: REPORT line
-└─ Custom Logs ───────▶ CloudWatch Logs: /aws/lambda/*
+├─ Invocation Count ──> AWS/Lambda: Invocations
+├─ Duration ──────────> AWS/Lambda: Duration
+├─ Errors ──────────> AWS/Lambda: Errors
+├─ Memory Used ─────> CloudWatch Logs: REPORT line
+└─ Custom Logs ───────> CloudWatch Logs: /aws/lambda/*
 ```
 
 ### Metric Mappings

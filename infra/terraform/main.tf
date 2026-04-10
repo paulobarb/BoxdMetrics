@@ -99,7 +99,7 @@ resource "aws_lambda_function_url" "api_url" {
   cors {
     allow_credentials = true
     allow_origins = [
-      "http://localhost:5173",
+      "http://localhost:5174",
       "http://localhost:3001",
       "https://boxd-metrics.vercel.app"
     ]

@@ -17,7 +17,9 @@ def get_real_ip(request: Request):
 if is_aws:
     limiter = Limiter(key_func=get_real_ip)
 else:
-    limiter = Limiter(key_func=get_remote_address, storage_uri="redis://localhost:6379")
+    # In Docker, use the service name 'redis' instead of 'localhost'
+    redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379")
+    limiter = Limiter(key_func=get_remote_address, storage_uri=redis_url)
 
 # --- API KEY AUTH ---
 async def verify_api_key(x_api_key: str = Header(...)):

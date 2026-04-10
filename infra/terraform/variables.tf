@@ -13,11 +13,11 @@ variable "project_name" {
 variable "environment" {
   type        = string
   description = "The deployment environment (e.g., dev, staging, prod)"
-  default     = "dev"
+  default     = "prod"
 
   validation {
-    condition     = contains(["dev", "staging", "prod"], var.environment)
-    error_message = "Environment must be dev, staging, or prod."
+    condition     = contains(["dev", "prod"], var.environment)
+    error_message = "Environment must be dev or prod."
   }
 }
 
@@ -38,3 +38,23 @@ variable "api_secret_key" {
 #  type = string
 #  sensitive = true
 #}
+
+# =======================
+# == Grafana Variables ==
+# =======================
+
+variable "grafana_push_url" {
+  description = "Grafana Cloud Remote Write URL"
+  type        = string
+}
+
+variable "grafana_user_id" {
+  description = "Grafana Cloud Prometheus Username"
+  type        = string
+}
+
+variable "grafana_token" {
+  description = "Grafana Cloud API Token"
+  type        = string
+  sensitive   = true
+}

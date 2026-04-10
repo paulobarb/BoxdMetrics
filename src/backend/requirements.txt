@@ -4,5 +4,6 @@ pandas
 mangum
 python-multipart
 slowapi
+redis
 httpx
 prometheus-fastapi-instrumentator

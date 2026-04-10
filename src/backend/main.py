@@ -24,18 +24,15 @@ is_aws = os.environ.get('LAMBDA_TASK_ROOT')
 is_local_dev = os.environ.get('ENVIRONMENT') == 'development'
 
 if is_local_dev or not is_aws:
-    print("DEBUG: Running in LOCAL mode - CORS enabled for localhost")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=["http://localhost:3001", "http://localhost:3000", "http://localhost:5173"],
+        allow_origins=["http://localhost:3001", "http://localhost:3000", "http://localhost:5173", "http://localhost:5174", "http://localhost:5175", "http://localhost:5500", "http://localhost:8080"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
     )
-else:
-    print("DEBUG: Running in AWS mode - CORS disabled")
 
-Instrumentator().instrument(app).expose(app)
+    Instrumentator().instrument(app).expose(app)
 
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)

@@ -80,3 +80,6 @@ uvicorn==0.41.0
     # via -r requirements.txt
 wrapt==2.1.2
     # via deprecated
+
+redis==5.2.1
+# via -r requirements.txt

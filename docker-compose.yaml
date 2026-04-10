@@ -1,12 +1,29 @@
 services:
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./src/frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=/api/upload
+      - VITE_API_PROXY_TARGET=http://backend:8000
+      - VITE_API_KEY=dev_secret_123
+    depends_on:
+      - backend
   backend:
     build: ./src/backend
     ports:
       - 8000:8000
     volumes:
       - ./src/backend:/app
-    env_file:
-      - .env
+    environment:
+      - REDIS_URL=redis://redis:6379
+      - ENVIRONMENT=development
+      - API_SECRET_KEY=dev_secret_123
     depends_on:
       - redis
   redis:
@@ -26,8 +43,13 @@ services:
     image: grafana/grafana:12.3.0
     ports:
       - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
       - grafana-storage:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./infra/monitoring/grafana:/etc/grafana/custom-dashboards
     depends_on:
       - prometheus
 

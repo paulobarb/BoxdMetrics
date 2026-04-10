@@ -40,8 +40,13 @@ services:
     image: grafana/grafana:12.3.0
     ports:
       - "3000:3000"
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
     volumes:
       - grafana-storage:/var/lib/grafana
+      - ./infra/monitoring/grafana/provisioning:/etc/grafana/provisioning
+      - ./infra/monitoring/grafana/dashboards:/etc/grafana/custom-dashboards
     depends_on:
       - prometheus
 

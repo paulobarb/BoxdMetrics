@@ -84,10 +84,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = {
       API_SECRET_KEY   = var.api_secret_key
-      ENVIRONMENT      = "production"
-      GRAFANA_PUSH_URL = var.grafana_push_url
-      GRAFANA_USER_ID  = var.grafana_user_id
-      GRAFANA_TOKEN    = var.grafana_token
+      ENVIRONMENT      = var.environment
     }
   }
 }

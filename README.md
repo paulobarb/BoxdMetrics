@@ -61,6 +61,7 @@ This project was built to demonstrate a real DevSecOps workflow: security checks
 | **IaC** | Terraform | Reproducible infrastructure, IAM roles, and CORS provisioning |
 | **Monitoring** | CloudWatch & Prometheus | Cloud execution logs & Local development metrics |
 
+
 ---
 
 ## CI/CD Pipeline
@@ -145,48 +146,31 @@ BoxdMetrics/
 
 ## Quick Start (Local Development)
 
-**Prerequisites:** Docker & Docker Compose, Node.js 18+
+**Prerequisites:** Docker & Docker Compose, Node.js, your Letterboxd export files.
 
-### 1. Clone and Setup
+### 1. Backend API
 ```bash
-git clone https://github.com/paulobarb/BoxdMetrics.git
+git clone [https://github.com/paulobarb/BoxdMetrics.git](https://github.com/paulobarb/BoxdMetrics.git)
 cd BoxdMetrics
-```
 
-### 2. Environment Setup
-Create the required environment files from the examples:
-```bash
-# Root .env for Docker Compose
-cp .env.example .env
-# Edit .env to set your API_SECRET_KEY
-
-# Frontend env
-cp src/frontend/.env.local.example src/frontend/.env.local
-# Edit src/frontend/.env.local to set VITE_API_KEY
-```
-
-### 3. Start Backend (Docker)
-```bash
-# Start all services (backend, redis, prometheus, grafana)
-docker-compose up -d
-
-# View logs
-docker-compose logs -f backend
+# Start the local backend simulation
+docker-compose up --build
 ```
 * API: `http://localhost:8000`
 * API docs: `http://localhost:8000/docs`
-* Prometheus: `http://localhost:9090`
-* Grafana: `http://localhost:3000`
 
-### 4. Start Frontend (Dev Server)
+### 2. Frontend UI
 ```bash
 cd src/frontend
 npm install
+
+# Create local environment variable
+echo "VITE_API_URL=http://localhost:8000/api/upload/" > .env
+
+# Start React dev server
 npm run dev
 ```
 * UI: `http://localhost:5173`
-
-The frontend will proxy API requests to your local backend automatically.
 
 ---
 

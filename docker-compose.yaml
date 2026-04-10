@@ -1,4 +1,18 @@
 services:
+  frontend:
+    build:
+      context: ./src/frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5174:5173"
+    volumes:
+      - ./src/frontend:/app
+      - /app/node_modules
+    environment:
+      - VITE_API_URL=/api/upload
+      - VITE_API_PROXY_TARGET=http://backend:8000
+    depends_on:
+      - backend
   backend:
     build: ./src/backend
     ports:

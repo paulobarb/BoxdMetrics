@@ -83,8 +83,11 @@ resource "aws_lambda_function" "api" {
 
   environment {
     variables = {
-      API_SECRET_KEY = var.api_secret_key
-      ENVIRONMENT    = "production"  # Matches your main.py config!
+      API_SECRET_KEY   = var.api_secret_key
+      ENVIRONMENT      = "production"
+      GRAFANA_PUSH_URL = var.grafana_push_url
+      GRAFANA_USER_ID  = var.grafana_user_id
+      GRAFANA_TOKEN    = var.grafana_token
     }
   }
 }
@@ -98,15 +101,15 @@ resource "aws_lambda_function_url" "api_url" {
 
   cors {
     allow_credentials = true
-    allow_origins     = [
-        "http://localhost:5173",
-        "http://localhost:3001",
-        "https://boxd-metrics.vercel.app"
+    allow_origins = [
+      "http://localhost:5173",
+      "http://localhost:3001",
+      "https://boxd-metrics.vercel.app"
     ]
-    allow_methods     = ["POST"]
-    allow_headers     = ["*"]
-    expose_headers    = ["keep-alive", "date"]
-    max_age           = 86400
+    allow_methods  = ["POST"]
+    allow_headers  = ["*"]
+    expose_headers = ["keep-alive", "date"]
+    max_age        = 86400
   }
 }
 
@@ -152,8 +155,8 @@ resource "aws_iam_policy" "lambda_app_permissions" {
       Resource = [
         "${aws_s3_bucket.csv_uploads.arn}/*"
       ]
-    },
-    {
+      },
+      {
         Effect = "Allow"
         Action = [
           "dynamodb:PutItem",

@@ -4,7 +4,6 @@
 
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/backend.yml?label=CI%2FCD&style=flat-square)](https://github.com/paulobarb/BoxdMetrics/actions)
 [![Infrastructure](https://img.shields.io/badge/Terraform-AWS%20Lambda-orange?style=flat-square&logo=terraform)](infra/terraform/)
-[![Security](https://img.shields.io/badge/security-SLSA%20L1-green?style=flat-square)](.github/workflows/backend.yml)
 [![License](https://img.shields.io/github/license/paulobarb/BoxdMetrics?style=flat-square)](LICENSE)
 
 **Live Demo:** [boxd-metrics.vercel.app](https://boxd-metrics.vercel.app)  
@@ -13,56 +12,21 @@
 
 ## Executive Summary
 
-BoxdMetrics workflow: developer commits code → automated security pipeline validates → infrastructure deploys as code. The architecture prioritizes **security-by-default**, **cost-efficiency** (scales to zero), and **zero-downtime deployments**.
+BoxdMetrics workflow: developer commits code -> automated security pipeline validates -> the container image deploys to Lambda. Infrastructure is defined in Terraform. The architecture prioritizes **security-by-default**, **cost-efficiency** (scales to zero), and **zero-downtime deployments**.
 
 Key achievements:
 - **Security-gated CI/CD:** 5-layer security checks prevent vulnerable code from reaching production
 - **Serverless-first:** AWS Lambda architecture costs ~$0.55/month vs $20+/month for always-on compute
 - **Infrastructure as Code:** Complete AWS environment reproducible via Terraform
-- **Zero-trust security:** CORS-locked origins, API key auth, least-privilege IAM
+- **Locked-down access:** CORS-locked origins, API key auth, least-privilege IAM
 
 ---
 
 ## Architecture Overview
 
-```
-┌────────────────────────────────────────────────────────────────────────────┐
-│                           GitHub Actions (CI/CD)                           │
-│  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐  │
-│  │  Security   │───>│    Build    │───>│    Scan     │───>│   Deploy    │  │
-│  │  Layer 1-5  │    │   + Test    │    │    Trivy    │    │  AWS ECR    │  │
-│  └─────────────┘    └─────────────┘    └─────────────┘    └─────────────┘  │
-└────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              AWS Cloud (Terraform)                          │
-│                                                                             │
-│   ┌──────────────────┐         ┌─────────────────────────────────────┐      │
-│   │   ECR Registry   │         │         Lambda Function             │      │
-│   │   ┌──────────┐   │         │   ┌─────────────────────────────┐   │      │
-│   │   │ :latest  │───┼─────────┼──>│  FastAPI + Mangum Adapter   │   │      │
-│   │   └──────────┘   │         │   │  • 30s timeout              │   │      │
-│   └──────────────────┘         │   │  • 512MB RAM                │   │      │
-│                                │   │  • Python 3.12              │   │      │
-│                                │   └─────────────┬───────────────┘   │      │
-│                                │                 │                   │      │
-│                                │   ┌─────────────▼────────────┐      │      │
-│    ┌──────────────────┐        │   │   Function URL (CORS)    │      │      │
-│    │   Data Layer     │        │   │  ─────────────────────── │      │      │
-│    │  ┌────────────┐  │        │   │  Origins: Vercel-locked  │      │      │
-│    │  │ S3 (CSV)   │  │        │   │  Auth: App-level         │      │      │
-│    │  │ DynamoDB   │  │        │   └──────────────────────────┘      │      │
-│    │  └────────────┘  │        └─────────────────────────────────────┘      │
-│    └──────────────────┘                                                     │
-└─────────────────────────────────────────────────────────────────────────────┘
-                                       │
-                                       ▼ HTTPS
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              Vercel Edge (Frontend)                         │
-│                                   React + Vite                              │
-└─────────────────────────────────────────────────────────────────────────────┘
-```
+![BoxdMetrics architecture](docs/architecture.png)
+
+<sub>Editable source: [`docs/architecture.svg`](docs/architecture.svg).</sub>
 
 ---
 
@@ -70,19 +34,19 @@ Key achievements:
 
 | Category | Technology | Security Purpose |
 |----------|-----------|------------------|
-| **Frontend** | React, Vite | CSP headers, build-time env injection |
+| **Frontend** | React, Vite | Build-time env injection, no secrets in the bundle |
 | **Backend** | FastAPI, Python | Input validation, type safety, rate limiting |
 | **Serverless** | AWS Lambda (Mangum) | No persistent attack surface, IAM-isolated |
-| **Container** | Docker multi-stage | Minimal attack surface, distroless where possible |
-| **Registry** | Amazon ECR | Image scanning on push, immutable tags |
+| **Container** | Docker multi-stage on the AWS Lambda Python base image | Small runtime image, build tools left in the builder stage |
+| **Registry** | Amazon ECR | Image scanning on push, AES-256 encryption at rest |
 | **CI/CD** | GitHub Actions | OIDC authentication (no long-lived secrets) |
 | **SAST** | Bandit, Ruff | Python vulnerability detection |
 | **Secrets** | Gitleaks | Pre-commit secret detection |
 | **Dependencies** | pip-audit | CVE scanning for supply chain |
 | **Images** | Trivy | OS + library vulnerability scanning |
-| **IaC** | Terraform | Version-controlled infrastructure, plan reviews |
+| **IaC** | Terraform | Version-controlled, reproducible infrastructure |
 | **Auth** | AWS IAM + OIDC | Federated identity, no static credentials |
-| **Monitoring** | CloudWatch + Prometheus | Observability, alerting |
+| **Monitoring** | CloudWatch Logs (prod), Prometheus + Grafana (local) | Observability (alerting planned) |
 
 ---
 
@@ -93,7 +57,8 @@ Two documented architectural iterations tracked in the `infra/` directory:
 ### [Current Architecture: Serverless Lambda (V2)](infra/terraform/)
 
 ```hcl
-# resources: Lambda, ECR, S3, DynamoDB, IAM, CloudWatch
+# resources: Lambda, ECR, IAM, CloudWatch
+# also provisioned for upcoming persistence: S3 (CSV uploads), DynamoDB (stats)
 # cost: ~$0.55/month at current usage
 # cold start: ~2-4 seconds
 ```
@@ -182,22 +147,25 @@ See [infra/monitoring/README.md](infra/monitoring/) for detailed dashboard docum
 │  Mitigation: pip-audit CVE scanning + lock files                            │
 │                                                                             │
 │  Threat: Container Escape                                                   │
-│  Mitigation: Distroless images + Trivy scanning + minimal privileges        │
+│  Mitigation: AWS Lambda base image + Trivy scanning + least-privilege role  │
 │                                                                             │
 │  Threat: DDoS / Billing Attack                                              │
-│  Mitigation: CORS origin blocking + rate limiting (slowapi + Redis)         │
+│  Mitigation: CORS origin blocking + rate limiting (slowapi)                 │
+│  Note: Redis-backed locally; in-memory per Lambda instance in production    │
 │                                                                             │
 │  Threat: Injection (CSV parsing)                                            │
 │  Mitigation: Pandas strict column validation, size limits (2MB max)         │
 │                                                                             │
 │  Threat: IAM Privilege Escalation                                           │
-│  Mitigation: Least-privilege roles, OIDC conditions (repo/branch match)     │
+│  Mitigation: Least-privilege roles, OIDC trust limited to this repository   │
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## Testing Strategy
+
+The CI pipeline runs the ETL unit tests (`test_etl.py`). The API route tests (`test_routes.py`) are being updated to match the current endpoints and are not yet part of CI.
 
 ```bash
 # Unit tests (pytest)
@@ -255,7 +223,7 @@ BoxdMetrics/
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Cold Start | 1-2s | Python + Pandas initialization |
+| Cold Start | 2-4s | Python + Pandas initialization |
 | Warm Response | <200ms | Cached Lambda execution |
 | Max File Size | 2MB | CSV upload limit |
 | Rate Limit | 3 req/min per IP | Configurable via slowapi |

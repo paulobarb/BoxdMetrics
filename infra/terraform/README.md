@@ -14,12 +14,12 @@ This architecture prioritizes **cost-efficiency** and **operational simplicity**
 
 | Decision | Rationale |
 |----------|-----------|
-| Lambda over ECS | 99% cost reduction for low-traffic workload |
+| Lambda over ECS | ~97% cost reduction (~$20 → ~$0.55/month) for a low-traffic workload |
 | Function URLs over API Gateway | No additional cost, simpler CORS |
 | Container images over ZIP | Portability, dependency management |
 | OIDC over access keys | No long-lived credentials in CI/CD |
 | On-demand DynamoDB | Pay per request, not provisioned |
-| Terraform over SAM/CDK | Explicit resource control, state locking |
+| Terraform over SAM/CDK | Explicit resource control, plain HCL |
 
 ---
 
@@ -82,9 +82,9 @@ This architecture prioritizes **cost-efficiency** and **operational simplicity**
 │   │   │  ──────────────       │           │  ─────────────────      │   │   │
 │   │   │  boxdmetrics-csv      │           │  boxdmetrics-stats      │   │   │
 │   │   │  uploads              │           │  ─────────────────      │   │   │
-│   │   │  • Encrypted (AES256) │           │  • UserId (PK)          │   │   │
-│   │   │  • Versioning         │           │  • On-demand billing    │   │   │
-│   │   └───────────────────────┘           │  • TTL for cleanup      │   │   │
+│   │   │  • Default SSE-S3     │           │  • UserId (PK)          │   │   │
+│   │   │  • (not versioned)    │           │  • On-demand billing    │   │   │
+│   │   └───────────────────────┘           │  • No TTL yet           │   │   │
 │   │                                       └─────────────────────────┘   │   │
 │   └─────────────────────────────────────────────────────────────────────┘   │
 │                                                                             │
@@ -114,7 +114,7 @@ This architecture prioritizes **cost-efficiency** and **operational simplicity**
 
 | Resource | Purpose | Configuration |
 |----------|---------|---------------|
-| `aws_s3_bucket.csv_uploads` | Raw CSV storage | Encrypted, versioned |
+| `aws_s3_bucket.csv_uploads` | Raw CSV storage | Default SSE-S3 encryption (applied by AWS), no versioning yet |
 | `aws_dynamodb_table.user_movie_stats` | Cached analytics | On-demand billing, string PK |
 | `aws_cloudwatch_log_group.api` | Execution logs | 7-day retention |
 
@@ -132,7 +132,7 @@ This architecture prioritizes **cost-efficiency** and **operational simplicity**
 
 | Resource | Purpose | Configuration |
 |----------|---------|---------------|
-| `aws_s3_bucket.terraform_state` | State persistence | Versioned, encrypted |
+| `aws_s3_bucket.terraform_state` | State bucket | Versioned. Not yet configured as the backend: state is currently local |
 | `random_id.suffix` | Unique bucket names | 4 bytes entropy |
 
 ---
@@ -152,9 +152,8 @@ This architecture prioritizes **cost-efficiency** and **operational simplicity**
 *Cost model assumes ~100 requests/day, average 200ms execution.*
 
 **Cost Control Safeguards:**
-- Reserved concurrency limits (throttling protection)
 - CloudWatch retention limits (log cost control)
-- S3 lifecycle policies (auto-cleanup consideration)
+- Not in place yet: reserved concurrency, S3 lifecycle rules, AWS Budgets alerts
 
 ---
 
@@ -185,8 +184,8 @@ GitHub Push
 ```
 
 **Deployment guarantees:**
-- Tagged images enable instant rollback
-- State locking prevents concurrent modifications
+- Every image is also tagged with its commit SHA, so a previous version can be redeployed
+- Terraform state is local for now (remote state with locking is planned)
 - OIDC authentication (no credentials in repo)
 - All security gates must pass
 
@@ -305,18 +304,6 @@ Cannot:
 - Access other AWS accounts
 - Elevate privileges
 ```
-
----
-
-## When NOT To Use This
-
-Lambda is NOT suitable when:
-
-❌ **Sustained high throughput** (>100 req/s sustained)
-❌ **Long-running processes** (>30s standard, >15min w/ streaming)
-❌ **Microsecond latency requirements** (cold start: 1-2s)
-❌ **Persistent connections** (WebSockets - use API Gateway + Lambda)
-❌ **Stateful sessions** (must externalize to DB/cache)
 
 ---
 

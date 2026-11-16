@@ -14,10 +14,10 @@ This directory preserves the **first iteration** of BoxdMetrics infrastructure: 
 
 | Metric | ECS (V1) | Lambda (V2) | Savings |
 |--------|----------|-------------|---------|
-| Monthly Cost | ~$20-35 | ~$0.55 | **98.4%** |
+| Monthly Cost | ~$20-35 | ~$0.55 | **97-98%** |
 | Complexity | VPC + DuckDNS + ECS | Function URL | **Simplified** |
 | Scaling | Manual config | Automatic | **Better** |
-| Cold Start | 2-5s (container) | 1-2s (Lambda) | **Comparable** |
+| Cold Start | 2-5s (container) | 2-4s (Lambda) | **Comparable** |
 
 **Note:** Used DuckDNS instead of ALB to avoid ~$16/mo load balancer cost.
 
@@ -146,34 +146,34 @@ The application code would update DuckDNS with the container's public IP on star
 
 ### ECS with DuckDNS Pros
 
-- ✅ No cold starts after initial container startup
-- ✅ Familiar container deployment model
-- ✅ **No ALB cost** (DuckDNS workaround)
-- ✅ Predictable pricing at steady-state
-- ✅ Static container for hours/days
+- No cold starts after initial container startup
+- Familiar container deployment model
+- **No ALB cost** (DuckDNS workaround)
+- Predictable pricing at steady-state
+- Static container for hours/days
 
 ### ECS with DuckDNS Cons
 
-- ❌ Container exposed to internet (security)
-- ❌ ~~HTTP only~~ **SOLVED:** Vercel proxy added HTTPS
-- ❌ Dynamic IP on redeployment
-- ❌ DuckDNS dependency (external service)
-- ❌ Proxy adds latency (Vercel → DuckDNS)
-- ❌ Still expensive for low-traffic (~$24/mo)
-- ❌ No scale-to-zero
-- ❌ More complexity than Lambda
+- Container exposed to internet (security)
+- ~~HTTP only~~ **SOLVED:** Vercel proxy added HTTPS
+- Dynamic IP on redeployment
+- DuckDNS dependency (external service)
+- Proxy adds latency (Vercel → DuckDNS)
+- Still expensive for low-traffic (~$24/mo)
+- No scale-to-zero
+- More complexity than Lambda
 
 ### Lambda Pros (Current)
 
-- ✅ HTTPS included (Function URL)
-- ✅ No public IP exposure
-- ✅ 98% cost reduction
-- ✅ Auto-scaling to zero
+- HTTPS included (Function URL)
+- No public IP exposure
+- ~97% cost reduction
+- Auto-scaling to zero
 
 ### Lambda Trade-offs
 
-- ⚠️ Cold starts
-- ⚠️ 30-second timeout limit
+- Cold starts
+- 30-second timeout limit
 
 ---
 

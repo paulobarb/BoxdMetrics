@@ -1,74 +1,63 @@
 # BoxdMetrics
 
-> Production-grade serverless analytics platform with automated pipeline. Processes Letterboxd movie data through a CI/CD pipeline to AWS Lambda, delivering sub-second personalized insights.
+> Upload your Letterboxd CSV export and get a few stats about your viewing: total films, favourite decade, average rating and the weekday you watch most. A personal portfolio project: a FastAPI backend on AWS Lambda, deployed by a GitHub Actions pipeline with security checks, with the infrastructure defined in Terraform.
 
 [![CI/CD](https://img.shields.io/github/actions/workflow/status/paulobarb/BoxdMetrics/backend.yml?label=CI%2FCD&style=flat-square)](https://github.com/paulobarb/BoxdMetrics/actions)
 [![Infrastructure](https://img.shields.io/badge/Terraform-AWS%20Lambda-orange?style=flat-square&logo=terraform)](infra/terraform/)
 [![License](https://img.shields.io/github/license/paulobarb/BoxdMetrics?style=flat-square)](LICENSE)
 
-**Live Demo:** [boxd-metrics.vercel.app](https://boxd-metrics.vercel.app)  
+Live demo: [boxd-metrics.vercel.app](https://boxd-metrics.vercel.app)
 
----
+## Overview
 
-## Executive Summary
+Every push or pull request to `main` that touches the backend runs five security checks in GitHub Actions (Gitleaks, Ruff, Bandit, pip-audit and Trivy). On a push, if they all pass, the pipeline pushes the container image to ECR and points the Lambda function at it. Terraform defines the AWS side.
 
-BoxdMetrics workflow: developer commits code -> automated security pipeline validates -> the container image deploys to Lambda. Infrastructure is defined in Terraform. The architecture prioritizes **security-by-default**, **cost-efficiency** (scales to zero), and **zero-downtime deployments**.
+- The backend runs on Lambda, which should cost about $0.55/month at current traffic (an estimate, not taken from an AWS bill). The ECS Fargate version it replaced cost $20 or more.
+- GitHub Actions logs in to AWS through OIDC, so no AWS keys are stored in the repository or in GitHub secrets.
+- The API only accepts CORS requests from the Vercel site, has a basic rate limit, and runs under IAM roles that only reach the resources it uses. The [known gaps](#known-gaps) section lists what is still weak.
 
-Key achievements:
-- **Security-gated CI/CD:** 5-layer security checks prevent vulnerable code from reaching production
-- **Serverless-first:** AWS Lambda architecture costs ~$0.55/month vs $20+/month for always-on compute
-- **Infrastructure as Code:** Complete AWS environment reproducible via Terraform
-- **Locked-down access:** CORS-locked origins, API key auth, least-privilege IAM
-
----
-
-## Architecture Overview
+## Architecture
 
 ![BoxdMetrics architecture](docs/architecture.png)
 
 <sub>Editable source: [`docs/architecture.svg`](docs/architecture.svg).</sub>
 
----
+## Tech stack
 
-## Tech Stack & Security Layers
+| Category | Technology | Security role |
+|----------|-----------|---------------|
+| Frontend | React, Vite | Static site on Vercel; the API key it sends is public (see [API key](#api-key-not-a-secret)) |
+| Backend | FastAPI, Python | Input validation, type checking, rate limiting |
+| Serverless | AWS Lambda (Mangum) | No long-running server to attack; each function has its own IAM role |
+| Container | Docker multi-stage on the AWS Lambda Python base image | Build tools stay in the builder stage |
+| Registry | Amazon ECR | Image scanning on push, AES-256 encryption at rest |
+| CI/CD | GitHub Actions | OIDC authentication, no long-lived AWS keys |
+| SAST | Bandit, Ruff | Python vulnerability and lint checks |
+| Secrets | Gitleaks | Secret detection in CI |
+| Dependencies | pip-audit | Known CVEs in Python dependencies |
+| Images | Trivy | OS and library vulnerabilities in the built image |
+| IaC | Terraform | Version-controlled infrastructure |
+| Auth | AWS IAM + OIDC | Federated identity for CI |
+| Monitoring | CloudWatch Logs (prod), Prometheus + Grafana (local) | No alerting yet |
 
-| Category | Technology | Security Purpose |
-|----------|-----------|------------------|
-| **Frontend** | React, Vite | Build-time env injection, no secrets in the bundle |
-| **Backend** | FastAPI, Python | Input validation, type safety, rate limiting |
-| **Serverless** | AWS Lambda (Mangum) | No persistent attack surface, IAM-isolated |
-| **Container** | Docker multi-stage on the AWS Lambda Python base image | Small runtime image, build tools left in the builder stage |
-| **Registry** | Amazon ECR | Image scanning on push, AES-256 encryption at rest |
-| **CI/CD** | GitHub Actions | OIDC authentication (no long-lived secrets) |
-| **SAST** | Bandit, Ruff | Python vulnerability detection |
-| **Secrets** | Gitleaks | Pre-commit secret detection |
-| **Dependencies** | pip-audit | CVE scanning for supply chain |
-| **Images** | Trivy | OS + library vulnerability scanning |
-| **IaC** | Terraform | Version-controlled, reproducible infrastructure |
-| **Auth** | AWS IAM + OIDC | Federated identity, no static credentials |
-| **Monitoring** | CloudWatch Logs (prod), Prometheus + Grafana (local) | Observability (alerting planned) |
+## Infrastructure as code
 
----
+The `infra/` directory holds two versions of the infrastructure.
 
-## Infrastructure as Code
-
-Two documented architectural iterations tracked in the `infra/` directory:
-
-### [Current Architecture: Serverless Lambda (V2)](infra/terraform/)
+### [Current: serverless Lambda (V2)](infra/terraform/)
 
 ```hcl
 # resources: Lambda, ECR, IAM, CloudWatch
 # also provisioned for upcoming persistence: S3 (CSV uploads), DynamoDB (stats)
 # cost: ~$0.55/month at current usage
-# cold start: ~2-4 seconds
+# cold start: ~10 s observed (not formally measured yet)
 ```
 
-**Optimizations:**
-- Function URL CORS strictly bound to Vercel origins
-- Lambda memory tuned at 512MB (price/performance sweet spot)
-- CloudWatch Logs 7-day retention (cost vs debugging tradeoff)
+- The Function URL only accepts CORS requests from the Vercel origin and two localhost ports.
+- Lambda memory is set to 512 MB.
+- CloudWatch keeps logs for 7 days, to keep log storage cheap.
 
-### [Legacy Architecture: ECS Fargate (V1)](infra/terraform-legacy/)
+### [Legacy: ECS Fargate (V1)](infra/terraform-legacy/)
 
 ```hcl
 # resources: ECS Cluster, Fargate Tasks, VPC
@@ -76,13 +65,11 @@ Two documented architectural iterations tracked in the `infra/` directory:
 # use case: Sustained load, custom networking requirements
 ```
 
-Documented for reference showing evolution toward serverless-first design.
+Kept for reference. Its README explains why the project moved to Lambda.
 
----
+## Local development
 
-## Local Development
-
-**Prerequisites:** Docker, Docker Compose, Node.js 22+
+Prerequisites: Docker, Docker Compose, Node.js 22+
 
 ```bash
 # Clone repository
@@ -92,45 +79,37 @@ cd BoxdMetrics
 # Start frontend + backend + monitoring stack
 docker-compose up --build -d
 ```
-- RUN: http://localhost:5174
 
-**Local Services:**
 | Service | URL | Purpose |
 |---------|-----|---------|
+| Frontend | http://localhost:5174 | React app |
 | API | http://localhost:8000 | FastAPI backend |
-| API Docs | http://localhost:8000/docs | OpenAPI/Swagger UI |
+| API docs | http://localhost:8000/docs | OpenAPI/Swagger UI |
 | Prometheus | http://localhost:9090 | Metrics scraping |
-| Grafana | http://localhost:3000 | Visualization (admin/admin) |
+| Grafana | http://localhost:3000 | Dashboards (anonymous access with the Admin role) |
 
----
+## Monitoring
 
-## Monitoring & Observability
+### Production (CloudWatch)
 
-### Production (AWS CloudWatch)
+No alarms exist yet. These are the thresholds planned for them:
 
-| Metric | Source | Alert Threshold (to-do)|
-|--------|--------|-----------------|
-| Invocations | Lambda | N/A (usage tracking) |
-| Duration | Lambda | > 5s (p99 latency / Cold Start monitoring) |
+| Metric | Source | Planned alert threshold |
+|--------|--------|-------------------------|
+| Invocations | Lambda | None (usage tracking only) |
+| Duration | Lambda | > 5 s (p99 latency, cold starts) |
 | Errors | Lambda | > 1% error rate |
 
-### Local Development (Prometheus + Grafana)
+### Local (Prometheus + Grafana)
 
-Two custom dashboards for development debugging:
+Docker Compose loads two dashboards:
 
-**[AppHealth.json](infra/monitoring/grafana/AppHealth.json)** - RED Metrics
-- Request rate, latency (p95), error rate
-- Tracks what end-users experience
+- [AppHealth.json](infra/monitoring/grafana/AppHealth.json) shows RED metrics: request rate, p95 latency and error rate, which is what users notice.
+- [Infrastructure.json](infra/monitoring/grafana/Infrastructure.json) shows USE metrics: CPU, memory growth and container restarts, for spotting leaks and resource limits.
 
-**[Infrastructure.json](infra/monitoring/grafana/Infrastructure.json)** - USE Metrics
-- CPU, memory, container restarts
-- Detects resource exhaustion and memory leaks
+[infra/monitoring/README.md](infra/monitoring/) describes each panel.
 
-See [infra/monitoring/README.md](infra/monitoring/) for detailed dashboard documentation.
-
----
-
-## Security Architecture
+## Security
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -138,7 +117,8 @@ See [infra/monitoring/README.md](infra/monitoring/) for detailed dashboard docum
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
 │  Threat: Unauthorized API Access                                            │
-│  Mitigation: X-API-Key header validation (FastAPI dependency)               │
+│  Mitigation: X-API-Key header check. The key ships in the frontend bundle,  │
+│  so it only filters casual traffic; see "API key" below                     │
 │                                                                             │
 │  Threat: Credential Leakage (Git commit)                                    │
 │  Mitigation: Zero-config 'dummy' keys for local dev + GitHub Secrets        │
@@ -161,11 +141,33 @@ See [infra/monitoring/README.md](infra/monitoring/) for detailed dashboard docum
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
----
+### API key (not a secret)
 
-## Testing Strategy
+The frontend sends the key in the `X-API-Key` header, and Vite writes `VITE_*` variables into the JavaScript bundle at build time. Anyone can read it in the browser's DevTools, so treat it as public.
 
-The CI pipeline runs the ETL unit tests (`test_etl.py`). The API route tests (`test_routes.py`) are being updated to match the current endpoints and are not yet part of CI.
+The key blocks requests from anyone who hasn't copied it from the app. It doesn't authenticate users, and it doesn't stop someone calling the API directly with `curl`. CORS doesn't stop that either, because only browsers enforce CORS.
+
+What limits abuse today:
+- 3 requests per minute per client. In production the limiter identifies the client by the first IP in the `X-Forwarded-For` header, which the client can set itself, so it only slows down casual traffic. The counter also lives in each Lambda instance's memory, so it resets on cold starts and isn't shared between instances.
+- 2 MB file size limit.
+- No data is stored. Each uploaded CSV is processed in memory and discarded; nothing is written to S3 or DynamoDB yet.
+
+To make the key a real secret, the frontend would need to call a server-side proxy (for example a Vercel function) that adds the key, so it never reaches the browser.
+
+### Known gaps
+
+These are open, most of them found by a Semgrep scan:
+- The rate limit trusts `X-Forwarded-For` (see above). Keying it on the source IP from the Lambda request context would fix that.
+- If `API_SECRET_KEY` is not set, `core/config.py` falls back to `dev_secret_123`. Terraform always sets the variable in production, but the 503 "API key not configured" check in `core/security.py` can never trigger.
+- Both Dockerfiles run as root; neither has a `USER` line.
+- GitHub Actions are referenced by tag (`@v4`), not by commit SHA.
+- The local Redis connection uses `redis://`, without TLS. It only runs inside Docker Compose.
+- CI runs pip-audit with `--ignore-vuln CVE-2026-4539`.
+- ECR tags are mutable and DynamoDB has no customer-managed KMS key (see the [Terraform README](infra/terraform/README.md#known-gaps)).
+
+## Tests
+
+CI runs the ETL unit tests (`test_etl.py`). The API route tests (`test_routes.py`) are being updated to match the current endpoints and are not in CI yet.
 
 ```bash
 # Unit tests (pytest)
@@ -182,9 +184,7 @@ pip-audit -r requirements.txt
 docker run --rm -v $(pwd):/code aquasec/trivy fs /code
 ```
 
----
-
-## Project Structure
+## Project structure
 
 ```
 BoxdMetrics/
@@ -217,25 +217,19 @@ BoxdMetrics/
 └── README.md
 ```
 
----
-
-## Performance Characteristics
+## Performance
 
 | Metric | Value | Notes |
 |--------|-------|-------|
-| Cold Start | 2-4s | Python + Pandas initialization |
-| Warm Response | <200ms | Cached Lambda execution |
-| Max File Size | 2MB | CSV upload limit |
-| Rate Limit | 3 req/min per IP | Configurable via slowapi |
-| Monthly Cost | ~$0.55 | Lambda free tier covers usage |
-
----
+| Cold start | ~10 s (observed) | First request after the function has been idle, as seen in the browser. Not formally measured yet; to be confirmed with CloudWatch `Init Duration` |
+| Warm response | <200 ms (estimate) | Not measured yet |
+| Max file size | 2 MB | CSV upload limit |
+| Rate limit | 3 req/min per client | Set in `api/routes.py`; can be bypassed (see [known gaps](#known-gaps)) |
+| Monthly cost | ~$0.55 (estimate) | Not taken from an AWS bill. Lambda usage fits in the free tier; most of the estimate is CloudWatch Logs |
 
 ## License
 
-MIT - See [LICENSE](LICENSE)
-
----
+MIT. See [LICENSE](LICENSE).
 
 ## Contact
 

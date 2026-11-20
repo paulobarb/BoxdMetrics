@@ -1,22 +1,13 @@
-# Monitoring & Observability
+# Monitoring
 
-> Local development monitoring stack using Prometheus + Grafana.  
-> Production uses AWS CloudWatch (Lambda-native).
+Locally, Prometheus scrapes the FastAPI backend and Grafana shows the results. In production the backend runs on Lambda, which sends its metrics to CloudWatch on its own.
 
----
+| Environment | Tooling | Used for |
+|-------------|---------|----------|
+| Development | Prometheus + Grafana | Debugging and performance tuning while coding |
+| Production | AWS CloudWatch | Lambda's built-in metrics and logs, no extra servers |
 
-## Philosophy
-
-Two observability paths for two different needs:
-
-| Environment | Tooling | Purpose |
-|-----------|---------|---------|
-| **Development** | Prometheus + Grafana | Real-time debugging, performance tuning |
-| **Production** | AWS CloudWatch | Cost-efficient, serverless-native metrics |
-
----
-
-## Local Development Stack
+## Local stack
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────┐
@@ -37,18 +28,16 @@ Two observability paths for two different needs:
 └─────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Ports:**
-- `http://localhost:8000` - FastAPI backend
-- `http://localhost:9090` - Prometheus query UI
-- `http://localhost:3000` - Grafana dashboards (admin/admin)
+Ports:
+- `http://localhost:8000`: FastAPI backend
+- `http://localhost:9090`: Prometheus query UI
+- `http://localhost:3000`: Grafana dashboards (anonymous access with the Admin role)
 
----
+## Prometheus (port 9090)
 
-## Prometheus (Port 9090)
+Prometheus scrapes the backend every 15 seconds. The backend exposes its metrics through `prometheus-fastapi-instrumentator`.
 
-Scrapes FastAPI metrics every 15 seconds via `prometheus-fastapi-instrumentator`.
-
-### Metrics Exposed
+### Metrics exposed
 
 | Metric | Type | Description |
 |--------|------|-------------|
@@ -75,7 +64,7 @@ scrape_configs:
     scrape_interval: 15s
 ```
 
-### Query Examples
+### Query examples
 
 ```promql
 # Request rate per second
@@ -91,13 +80,7 @@ rate(http_requests_total{status=~"4xx|5xx"}[5m])
 deriv(process_resident_memory_bytes[5m])
 ```
 
----
-
-## Grafana (Port 3000)
-
-Interactive dashboards for development debugging.
-
-### Access
+## Grafana (port 3000)
 
 ```bash
 # Start stack
@@ -108,72 +91,44 @@ open http://localhost:3000
 # Login: admin / admin (accept password change prompt)
 ```
 
-### Dashboards
+Docker Compose turns on anonymous access with the Admin role, so the dashboards open without logging in. The `admin`/`admin` login above is only needed for the account itself. Keep this stack on your own machine.
 
-#### 1. AppHealth (`AppHealth.json`)
+### AppHealth dashboard (`AppHealth.json`)
 
-**Purpose:** RED Metrics (Rate, Errors, Duration) — what end-users experience
+RED metrics (rate, errors, duration): what users of the API notice.
 
-**Panels:**
+| Panel | Query | What it shows |
+|-------|-------|---------------|
+| Error Rate | `http_requests_total{status=~"4xx\|5xx"}` | Bad uploads (400s) and crashes (500s) |
+| Requests/sec | `rate(http_requests_total)` | API throughput over time |
+| Avg Duration | `rate(duration_sum) / rate(duration_count)` | Average API latency |
+| P95 Latency | `histogram_quantile(0.95, ...)` | 95% of requests are faster than this line |
 
-| Panel | Query | Interpretation |
-|-------|-------|----------------|
-| **Error Rate** | `http_requests_total{status=~"4xx\|5xx"}` | Volume of bad uploads (400s) and crashes (500s) |
-| **Requests/sec** | `rate(http_requests_total)` | API throughput and load over time |
-| **Avg Duration** | `rate(duration_sum) / rate(duration_count)` | User-perceived API latency |
-| **P95 Latency** | `histogram_quantile(0.95, ...)` | 95% of requests faster than this line |
+Useful while load testing, to catch performance regressions, and to spot error spikes by eye (there are no alerts).
 
-**Use cases:**
-- Load testing visualization
-- Performance regression detection
-- Error spike alerting (manual)
+### Infrastructure dashboard (`Infrastructure.json`)
 
-#### 2. Infrastructure (`Infrastructure.json`)
+USE metrics (utilization, saturation, errors), for finding resource bottlenecks.
 
-**Purpose:** USE Metrics (Utilization, Saturation, Errors) — debugging resource bottlenecks
+| Panel | Query | What it shows |
+|-------|-------|---------------|
+| CPU Usage | `rate(process_cpu_seconds_total[5m]) * 100` | Container CPU use |
+| Container Restarts | `changes(process_start_time_seconds[24h])` | How many times the process restarted |
+| Memory Usage | `deriv(process_resident_memory_bytes[5m])` | Memory growth rate |
 
-**Panels:**
+A memory growth rate that stays positive points to a leak, for example Pandas DataFrames that are never released:
 
-| Panel | Query | Interpretation |
-|-------|-------|----------------|
-| **CPU Usage** | `rate(process_cpu_seconds_total[5m]) * 100` | Container CPU consumption |
-| **Container Restarts** | `changes(process_start_time_seconds[24h])` | How many times process restarted (instability detection) |
-| **Memory Usage** | `deriv(process_resident_memory_bytes[5m])` | Memory growth rate (leak detection) |
+```promql
+# In Grafana - Memory Usage panel
+# Rate of change positive = leak
+deriv(process_resident_memory_bytes{job="boxdmetrics-api"}[5m])
+```
 
-**Use cases:**
-- Memory leak detection (Pandas DataFrame cleanup)
-- Container health monitoring
-- Resource profiling during dev
-
----
-
-## Dashboard JSON Reference
-
-### AppHealth.json
-
-**Description:** Tracks RED Metrics for user experience monitoring
-
-**File:** [`grafana/AppHealth.json`](grafana/AppHealth.json)
-
-**Datasource:** Prometheus (preconfigured uid)
-
-### Infrastructure.json
-
-**Description:** Tracks USE Metrics for system health debugging
-
-**File:** [`grafana/Infrastructure.json`](grafana/Infrastructure.json)
-
-**Thresholds:**
-- Green: 0-40%
-- Red: > 80%
-
----
+Every panel on this dashboard turns red at 80.
 
 ## Production: CloudWatch
 
-Lambda automatically sends metrics to CloudWatch. No local Prometheus/Grafana needed.
-
-### CloudWatch Metrics Path
+Lambda sends these metrics to CloudWatch without any setup:
 
 ```
 Lambda Execution
@@ -185,16 +140,16 @@ Lambda Execution
 └─ Custom Logs ───────> CloudWatch Logs: /aws/lambda/*
 ```
 
-### Metric Mappings
+### Local metric to CloudWatch equivalent
 
-| Local (Prometheus) | Production (CloudWatch) | Access |
-|-------------------|------------------------|---------|
+| Local (Prometheus) | Production (CloudWatch) | Where |
+|--------------------|-------------------------|-------|
 | `http_requests_total` | `AWS/Lambda: Invocations` | Console |
 | `http_request_duration_seconds` | `AWS/Lambda: Duration` | Console |
-| `process_memory_bytes` | `Memory Size` - `Max Memory Used` | Logs |
+| `process_resident_memory_bytes` | `Max Memory Used` in the REPORT line | Logs |
 | Custom errors | Logs Insights query | CloudWatch |
 
-### Useful CloudWatch Queries
+### CloudWatch Logs Insights queries
 
 ```sql
 -- Lambda execution duration
@@ -213,20 +168,18 @@ fields @timestamp, @message
 | stats count() by bin(1m)
 ```
 
----
+## Alerting
 
-## Alerting (Manual for now)
-
-### Local Development Thresholds
+There are no alerts yet, locally or in production. These are the thresholds to watch for by hand on the local dashboards:
 
 | Metric | Warning | Critical | Action |
 |--------|---------|----------|--------|
-| Error rate | > 1% | > 5% check logs |
-| P95 Latency | > 1s | > 5s optimize code |
-| Memory growth | > 50MB/5m | > 100MB/5m check DataFrame cleanup |
-| CPU | > 80% | > 95% investigate infinite loops |
+| Error rate | > 1% | > 5% | Check logs |
+| P95 latency | > 1 s | > 5 s | Optimize code |
+| Memory growth | > 50 MB/5m | > 100 MB/5m | Check DataFrame cleanup |
+| CPU | > 80% | > 95% | Look for infinite loops |
 
-### Production CloudWatch Alarms (Future)
+A production alarm would look like this (not implemented):
 
 ```hcl
 # Example alarm structure (not yet implemented)
@@ -243,31 +196,15 @@ resource "aws_cloudwatch_metric_alarm" "lambda_errors" {
 }
 ```
 
----
-
-### Identifying Leaks (Local)
-
-Pandas can leak memory with large DataFrames:
-
-```promql
-# In Grafana - Memory Usage panel
-# Rate of change positive = leak
-deriv(process_resident_memory_bytes{job="boxdmetrics-api"}[5m])
-```
-
----
-
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `prometheus.yml` | Scraping configuration (15s interval) |
-| `grafana/AppHealth.json` | RED metrics dashboard (user experience) |
-| `grafana/Infrastructure.json` | USE metrics dashboard (system resources) |
-| `grafana/provisioning/datasources/datasource.yml` | Auto-configured Prometheus connection |
-| `grafana/provisioning/dashboards/provider.yml` | Auto-loaded dashboard definitions |
-
----
+| `prometheus.yml` | Scrape configuration (15 s interval) |
+| `grafana/AppHealth.json` | RED metrics dashboard |
+| `grafana/Infrastructure.json` | USE metrics dashboard |
+| `grafana/provisioning/datasources/datasource.yml` | Connects Grafana to Prometheus on startup |
+| `grafana/provisioning/dashboards/provider.yml` | Loads the dashboards on startup |
 
 ## Usage
 
@@ -292,24 +229,20 @@ docker-compose logs -f prometheus
 docker-compose logs -f grafana
 ```
 
----
+## Local vs production
 
-## Comparison: Local vs Production
+| | Local (Prometheus) | Production (CloudWatch) |
+|---|---|---|
+| Cost | Free (containers) | ~$0.50/month (logs) |
+| Delay | Under a second | About 1 to 5 minutes |
+| Retention | Lost when the containers are removed | 7 days (configurable) |
+| Queries | PromQL | CloudWatch Logs Insights |
+| Dashboards | Grafana | Basic CloudWatch console |
+| Alerting | None (watch the dashboards) | None yet; CloudWatch alarms can notify through SNS |
+| Cold starts | Not applicable (the container stays up) | `Init Duration` in the REPORT log line |
 
-| Feature | Local (Prometheus) | Production (CloudWatch) |
-|---------|-------------------|------------------------|
-| **Cost** | Free (containers) | ~$0.50/mo (logs) |
-| **Latency** | Real-time (<1s) | ~1-5 minute delay |
-| **Retention** | Ephemeral (container lifetime) | 7 days (configurable) |
-| **Queries** | PromQL | CloudWatch Logs Insights |
-| **Dashboards** | Rich (Grafana) | Basic |
-| **Alerting** | Manual (view dashboards) | SNS (configurable) |
-| **Cold start tracing** | Yes (process_start_time) | No (only duration) |
+## Related documentation
 
----
-
-## Related Documentation
-
-- [Main Project README](../../README.md) - Architecture overview
-- [Terraform Infrastructure](../terraform/) - AWS resources
-- [Legacy ECS Architecture](../terraform-legacy/) - Original design
+- [Main project README](../../README.md)
+- [Terraform infrastructure](../terraform/)
+- [Legacy ECS architecture](../terraform-legacy/)

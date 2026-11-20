@@ -1,29 +1,21 @@
-# Terraform Legacy: ECS Fargate Architecture (V1)
+# Terraform legacy: ECS Fargate (V1)
 
-> **Status:** Deprecated / Archived
-> **Migration:** Superseded by [Serverless Lambda (V2)](../terraform/)
-> **Purpose:** Documentation of original infrastructure and evolution rationale
+> Status: archived. Replaced by the [serverless Lambda version (V2)](../terraform/).
 
----
+This was the first version of the BoxdMetrics infrastructure: the FastAPI container ran on AWS ECS Fargate, and [DuckDNS](https://www.duckdns.org/) gave its changing public IP a stable hostname. It stays here to show what the project ran on before Lambda and why it moved.
 
-## Why This Exists
+## Why it moved to Lambda
 
-This directory preserves the **first iteration** of BoxdMetrics infrastructure: a traditional containerized approach using AWS ECS Fargate with [DuckDNS](https://www.duckdns.org/) for dynamic hostname resolution. It serves as architecture documentation showing the evolution from always-on compute to serverless-first design.
+| Metric | ECS (V1) | Lambda (V2) | Change |
+|--------|----------|-------------|--------|
+| Monthly cost | ~$20-35 | ~$0.55 | 97-98% cheaper |
+| Moving parts | VPC + DuckDNS + ECS | Function URL | Fewer |
+| Scaling | Configured by hand | Automatic, down to zero | |
+| Cold start | 2-5 s (container) | ~10 s observed (Lambda) | Slower |
 
-### Migration Rationale
+DuckDNS was used instead of an Application Load Balancer, which would have cost about $16/month on its own.
 
-| Metric | ECS (V1) | Lambda (V2) | Savings |
-|--------|----------|-------------|---------|
-| Monthly Cost | ~$20-35 | ~$0.55 | **97-98%** |
-| Complexity | VPC + DuckDNS + ECS | Function URL | **Simplified** |
-| Scaling | Manual config | Automatic | **Better** |
-| Cold Start | 2-5s (container) | 2-4s (Lambda) | **Comparable** |
-
-**Note:** Used DuckDNS instead of ALB to avoid ~$16/mo load balancer cost.
-
----
-
-## Architecture (ECS Fargate with DuckDNS)
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────────────┐
@@ -56,29 +48,25 @@ This directory preserves the **first iteration** of BoxdMetrics infrastructure: 
 └─────────────────────────────────────────────────────────────────────────────┘
 ```
 
-**Networking:** No ALB. Container gets public IP directly, DuckDNS client updates hostname.
+There was no load balancer. The container got a public IP directly, and a DuckDNS client updated the hostname.
 
----
+## Resources
 
-## Components
-
-| Resource | Purpose | V2 Replacement |
+| Resource | Purpose | V2 replacement |
 |----------|---------|----------------|
-| `aws_vpc.main_vpc` | Isolated network (10.10.10.0/24) | Lambda networking (ephemeral) |
-| `aws_subnet.public_subnet` | Container hosting subnet | Lambda (no subnet management) |
-| `aws_internet_gateway.igw` | Public internet access | Lambda function URL |
+| `aws_vpc.main_vpc` | Isolated network (10.10.10.0/24) | None; Lambda needs no VPC |
+| `aws_subnet.public_subnet` | Subnet for the container | None |
+| `aws_internet_gateway.igw` | Public internet access | Lambda Function URL |
 | `aws_security_group.web_sg` | Firewall rules (port 8000) | IAM policies |
-| `aws_ecs_cluster.main` | Container orchestration | Lambda (no cluster needed) |
-| `aws_ecs_service.api` | Task scheduling | Lambda (event-driven scaling) |
-| `aws_ecs_task_definition.api` | Container spec with DuckDNS env vars | Docker image in Lambda |
+| `aws_ecs_cluster.main` | Container orchestration | None |
+| `aws_ecs_service.api` | Task scheduling | Lambda's own scaling |
+| `aws_ecs_task_definition.api` | Container spec with DuckDNS env vars | Container image in Lambda |
 | `aws_iam_role.ecs_execution_role` | Task execution permissions | Lambda execution role |
 | `aws_iam_role.ecs_task_role` | Container permissions | Lambda IAM role |
-| `aws_cloudwatch_log_group.api` | Log aggregation | CloudWatch (native) |
-| DuckDNS (external) | Dynamic hostname for public IP | Lambda function URL (built-in) |
+| `aws_cloudwatch_log_group.api` | Logs | Lambda's CloudWatch log group |
+| DuckDNS (external) | Hostname for the public IP | Function URL (built in) |
 
----
-
-## Security Model (V1)
+## Security model
 
 ```
 Layer 1: Security Group
@@ -90,24 +78,21 @@ Layer 2: IAM Roles
 ├── ecs-execution-role: Pull from ECR, CloudWatch logging
 └── ecs-task-role: Access S3, DynamoDB
 
-Layer 3: Container Hardening
-├── Non-root user (appuser)
+Layer 3: Container
 ├── DuckDNS client updates dynamic IP
 └── HTTP only (no TLS termination)
 ```
 
-**Security Tradeoffs vs V2:**
-- Public subnet required with public IPs
-- Container directly exposed (no ALB/proxy)
-- HTTP only (no HTTPS) - DuckDNS doesn't support TLS
-- Dynamic IP changes on redeployment
-- VPC network ACLs needed for defense in depth
-
----
+Compared with V2, this setup:
+- needed a public subnet and public IPs,
+- exposed the container directly, with no load balancer or proxy in front,
+- served plain HTTP, because DuckDNS doesn't provide TLS,
+- changed IP on every redeploy,
+- would have needed network ACLs as a second line of defence.
 
 ## Configuration
 
-### Required Variables
+### Variables
 
 ```hcl
 # Environment
@@ -122,7 +107,7 @@ api_secret_key = var.api_secret_key  # FastAPI auth
 duckdns_token  = var.duckdns_token   # Dynamic DNS (deprecated)
 ```
 
-### DuckDNS Integration
+### DuckDNS
 
 ```hcl
 # Container environment variables
@@ -138,64 +123,47 @@ environment = [
 ]
 ```
 
-The application code would update DuckDNS with the container's public IP on startup.
+On startup the application sent the container's public IP to DuckDNS.
 
----
+## ECS vs Lambda
 
-## Lessons Learned: ECS vs Lambda
+What ECS with DuckDNS did well:
+- No cold starts once the container was up.
+- A familiar container deployment model.
+- No load balancer cost, thanks to DuckDNS.
+- Predictable cost under steady traffic.
 
-### ECS with DuckDNS Pros
+Where it fell short:
+- The container was exposed to the internet.
+- It served plain HTTP until a Vercel proxy was added in front for HTTPS, and that proxy added latency.
+- The IP changed on every redeploy.
+- It depended on DuckDNS, an outside service.
+- It still cost about $24/month with almost no traffic, because it couldn't scale to zero.
 
-- No cold starts after initial container startup
-- Familiar container deployment model
-- **No ALB cost** (DuckDNS workaround)
-- Predictable pricing at steady-state
-- Static container for hours/days
+What Lambda (current) changes:
+- HTTPS comes with the Function URL.
+- No public IP to expose.
+- About 97% cheaper.
+- Scales to zero.
 
-### ECS with DuckDNS Cons
-
-- Container exposed to internet (security)
-- ~~HTTP only~~ **SOLVED:** Vercel proxy added HTTPS
-- Dynamic IP on redeployment
-- DuckDNS dependency (external service)
-- Proxy adds latency (Vercel → DuckDNS)
-- Still expensive for low-traffic (~$24/mo)
-- No scale-to-zero
-- More complexity than Lambda
-
-### Lambda Pros (Current)
-
-- HTTPS included (Function URL)
-- No public IP exposure
-- ~97% cost reduction
-- Auto-scaling to zero
-
-### Lambda Trade-offs
-
-- Cold starts
-- 30-second timeout limit
-
----
+The costs of Lambda are cold starts and the 30-second timeout set on the function (Lambda allows up to 15 minutes).
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `main-legacy.tf` | ECS cluster, service, task definitions with DuckDNS env vars |
-| `variables.tf` | Environment configuration inputs |
-| `secrets.auto.tfvars` | **NOT COMMITTED** - DuckDNS token, API secrets |
-| `.terraform/` | Provider modules and state cache |
-| `terraform.tfstate` | **Local only** - no S3 backend in V1 |
+| `main-legacy.tf` | ECS cluster, service and task definition with DuckDNS env vars |
+| `variables.tf` | Inputs |
+| `secrets.auto.tfvars` | Not committed: DuckDNS token and API secret |
+| `.terraform/` | Provider plugins and module cache |
+| `terraform.tfstate` | Local only; V1 had no S3 backend |
 
----
+## When ECS is the better choice
 
-## When to Use ECS
-
-Even with DuckDNS, this architecture is superior when:
-
-- Sustained >100 requests/second traffic
-- Long-running processes (>30 seconds average)
-- Need persistent connections (WebSockets)
-- VPC-native service integration required (RDS, ElastiCache)
-- **ALB acceptable cost** (steady traffic makes it worthwhile)
-- Compliance mandates static IPs
+ECS still beats Lambda when the service has:
+- sustained traffic above about 100 requests per second,
+- requests that run longer than 15 minutes, the Lambda maximum,
+- persistent connections such as WebSockets,
+- other VPC services to talk to, such as RDS or ElastiCache,
+- enough steady traffic to justify a load balancer,
+- a compliance rule that requires static IPs.

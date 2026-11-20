@@ -1,4 +1,5 @@
 import os
+import secrets
 from fastapi import HTTPException, Request, Header
 from slowapi import Limiter
 from slowapi.util import get_remote_address
@@ -22,9 +23,9 @@ else:
     limiter = Limiter(key_func=get_remote_address, storage_uri=redis_url)
 
 # --- API KEY AUTH ---
-async def verify_api_key(x_api_key: str = Header(...)):
+async def verify_api_key(x_api_key: str | None = Header(None)):
     if not API_KEY:
         raise HTTPException(status_code=503, detail="API key not configured")
-    if x_api_key != API_KEY:
+    if not x_api_key or not secrets.compare_digest(x_api_key.encode(), API_KEY.encode()):
         raise HTTPException(status_code=401, detail="Invalid API key")
     return True

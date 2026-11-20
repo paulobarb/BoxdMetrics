@@ -167,7 +167,7 @@ These are open, most of them found by a Semgrep scan:
 
 ## Tests
 
-CI runs the ETL unit tests (`test_etl.py`). The API route tests (`test_routes.py`) are being updated to match the current endpoints and are not in CI yet.
+CI runs the whole test suite: the ETL unit tests (`test_etl.py`) and the API route tests (`test_routes.py`), which cover auth, rate limiting and upload validation.
 
 ```bash
 # Unit tests (pytest)

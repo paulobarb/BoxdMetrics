@@ -102,7 +102,7 @@ jobs:
         - name: Run pytest
           env:
             PYTHONPATH: ./src/backend
-          run: python -m pytest ./src/backend/tests/test_etl.py
+          run: python -m pytest ./src/backend/tests
 
         - name: Configure AWS credentials
           if: github.event_name == 'push'

@@ -105,6 +105,7 @@ jobs:
           run: python -m pytest ./src/backend/tests/test_etl.py
 
         - name: Configure AWS credentials
+          if: github.event_name == 'push'
           uses: aws-actions/configure-aws-credentials@v6
           with:
             audience: sts.amazonaws.com
@@ -113,6 +114,7 @@ jobs:
 
         - name: Login to Amazon ECR
           id: login-ecr
+          if: github.event_name == 'push'
           uses: aws-actions/amazon-ecr-login@v2
 
         - name: Build and Scan Image

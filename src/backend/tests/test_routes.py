@@ -23,7 +23,7 @@ def test_upload_success():
         ("files", ("diary.csv", fake_diary, "text/csv"))
     ]
     
-    headers = {"Authorization": f"Bearer {API_KEY}"}
+    headers = {"X-API-Key": API_KEY}
     
     response = client.post("/api/upload/", headers=headers, files=files)
     
@@ -41,7 +41,7 @@ def test_upload_success():
 
 def test_rate_limiting():
     headers = {
-        "Authorization": f"Bearer {API_KEY}",
+        "X-API-Key": API_KEY,
         "X-Forwarded-For": "192.168.1.100"
         }
 
@@ -61,13 +61,19 @@ def test_rate_limiting():
 # -------------
 
 def test_upload_missing_auth_header():
-    # Sending no API key should get a 401 Forbidden
+    # Sending no API key should get a 401 Unauthorized
     response = client.post("/api/upload/")
     assert response.status_code == 401
 
 def test_upload_invalid_api_key():
     # Sending a fake API key should get a 401 Unauthorized
-    headers = {"Authorization": "Bearer FAKE_KEY"}
+    headers = {"X-API-Key": "FAKE_KEY"}
+    response = client.post("/api/upload/", headers=headers)
+    assert response.status_code == 401
+
+def test_upload_non_ascii_api_key():
+    # A non-ASCII key must be rejected with 401, not crash the comparison with a 500
+    headers = {"X-API-Key": "chavé".encode("utf-8")}
     response = client.post("/api/upload/", headers=headers)
     assert response.status_code == 401
 
@@ -75,7 +81,7 @@ def test_upload_invalid_api_key():
 
 def test_upload_missing_files():
     # Sending a valid API key, but no files
-    headers = {"Authorization": f"Bearer {API_KEY}"}
+    headers = {"X-API-Key": API_KEY}
     response = client.post("/api/upload/", headers=headers)
     
     # FastAPI automatically throws a 422 Unprocessable Entity if required files are missing
@@ -88,7 +94,7 @@ def test_upload_file_too_large():
     files = [
         ("files", ("watched.csv", fake_large_file, "text/csv"))
     ]
-    headers = {"Authorization": f"Bearer {API_KEY}"}
+    headers = {"X-API-Key": API_KEY}
     
     response = client.post("/api/upload/", headers=headers, files=files)
     

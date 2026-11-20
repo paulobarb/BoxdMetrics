@@ -67,3 +67,9 @@ htmlcov/
 # Build artifacts
 build/
 *.egg-info/
+
+# Semgrep scan output
+static_analysis_semgrep_*/
+
+# court skill trial files
+.court/

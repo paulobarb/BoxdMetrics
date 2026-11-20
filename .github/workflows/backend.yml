@@ -10,9 +10,6 @@ on:
     pull_request:
         branches:
             - main
-        paths:
-          - 'src/backend/**'
-          - '.github/workflows/backend.yml'
     workflow_dispatch:
 
 
@@ -24,8 +21,27 @@ env:
   AWS_REGION: eu-north-1
 
 jobs:
+    changes:
+      runs-on: ubuntu-latest
+      permissions:
+        pull-requests: read
+      outputs:
+        backend: ${{ steps.filter.outputs.backend }}
+      steps:
+          - name: Detect backend changes
+            id: filter
+            if: github.event_name == 'pull_request'
+            uses: dorny/paths-filter@v4.0.3
+            with:
+              filters: |
+                backend:
+                  - 'src/backend/**'
+                  - '.github/workflows/backend.yml'
+
     security:
       runs-on: ubuntu-latest
+      needs: changes
+      if: github.event_name != 'pull_request' || needs.changes.outputs.backend == 'true'
     
       steps:
           - name: Run checkout

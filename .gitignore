@@ -73,3 +73,7 @@ static_analysis_semgrep_*/
 
 # court skill trial files
 .court/
+
+# Claude
+.claude/settings.local.json
+CLAUDE.local.md
